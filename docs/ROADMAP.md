@@ -11,7 +11,8 @@ Status legend: **DONE** (implemented and verified), **NEXT** (not yet implemente
 ## Milestone 1 — functional desktop foundation
 - **NEXT:** Wails app shell with approved branding, appliance shelf, status, helpful empty/error states and keyboard navigation.
 - **NEXT:** Native tray on Windows/macOS/Linux; hide-to-tray, quit, window restore and single-instance behavior.
-- **NEXT:** Bounded discovery across physical LAN interfaces, duplicate reconciliation, manual URL and opt-in CIDRs, cancellations and persistent pinned registry.
+- **DONE:** Pure-Go bounded discovery of candidate LAN Zero1Local appliances with read-only health/status API validation, HTTP origin validation, cancellation and tests; diagnostic CLI.
+- **NEXT:** Desktop integration, user-approved device registry, duplicate reconciliation, authenticated enrollment, optional CIDRs and mDNS/DNS-SD.
 - **NEXT:** Secure trusted-appliance enrollment and TLS fingerprint change warning.
 - **NEXT:** Embedded authenticated Zero1Local admin window with tested isolation from privileged desktop bindings.
 
