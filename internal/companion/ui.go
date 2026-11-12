@@ -25,3 +25,6 @@ func(s *Server)handleCSS(w http.ResponseWriter,r *http.Request){serveAsset(w,"ui
 func(s *Server)handleJS(w http.ResponseWriter,r *http.Request){serveAsset(w,"ui/app.js","text/javascript; charset=utf-8")}
 func(s *Server)handleBrandLight(w http.ResponseWriter,r *http.Request){serveAsset(w,"ui/brand-light.png","image/png")}
 func(s *Server)handleBrandDark(w http.ResponseWriter,r *http.Request){serveAsset(w,"ui/brand-dark.png","image/png")}
+
+// BrandLightPNG returns the original approved Zero1Local artwork unchanged.
+func BrandLightPNG() ([]byte,error) {return assets.ReadFile("ui/brand-light.png")}
