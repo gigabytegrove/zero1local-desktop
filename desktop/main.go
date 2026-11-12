@@ -60,6 +60,9 @@ func run() error {
   Name:"Zero1Local Desktop", Description:"Zero1Local multi-appliance desktop companion",
   Mac:application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed:false},
  })
+ checkForUpdates, unavailable, err := configureUpdater(app)
+ if err != nil { return fmt.Errorf("configure native updater: %w", err) }
+ svc.ConfigureUpdater(currentVersion, updateChannel, checkForUpdates, unavailable)
  window=app.Window.NewWithOptions(application.WebviewWindowOptions{
   Name:"desktop-workspace", Title:"Zero1Local Desktop",
   Width:1180,Height:790,MinWidth:660,MinHeight:480,
@@ -75,6 +78,9 @@ func run() error {
  tray.SetTooltip("Zero1Local Desktop")
  menu:=app.Menu.New()
  menu.Add("Open Zero1Local Desktop").OnClick(func(_ *application.Context){window.Show();window.Focus()})
+ menu.Add("Check for updates…").OnClick(func(_ *application.Context){
+  if err := svc.StartUpdateCheck(); err != nil { log.Printf("update request: %v", err) }
+ })
  menu.Add("Hide window").OnClick(func(_ *application.Context){window.Hide()})
  menu.AddSeparator()
  menu.Add("Quit Zero1Local Desktop").OnClick(func(_ *application.Context){app.Quit()})

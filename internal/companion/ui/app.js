@@ -5,7 +5,7 @@ const rail=document.querySelector("#device-rail");
 const modal=document.querySelector("#modal");
 const modalBody=document.querySelector("#modal-body");
 const navigation=[...document.querySelectorAll("[data-nav]")];
-const S={settings:{theme:"system",devices:[],mappings:[]},platform:"linux",view:"home",selected:"",busy:false,scan:[],inventory:null};
+const S={settings:{theme:"system",devices:[],mappings:[]},platform:"linux",view:"home",selected:"",busy:false,scan:[],inventory:null,updater:{supported:false,version:"development preview",channel:"beta",checking:false}};
 
 const getDevice=id=>S.settings.devices.find(d=>d.id===id);
 const selected=()=>getDevice(S.selected);
@@ -43,7 +43,7 @@ async function task(fn){
 }
 async function reload(){
  const result=await request("/api/state");
- S.settings=result.settings;S.platform=result.platform;
+ S.settings=result.settings;S.platform=result.platform;S.updater=result.updater||S.updater;
  if(S.selected&&!getDevice(S.selected))S.selected="";
  if(!S.selected&&S.settings.devices.length)S.selected=S.settings.devices[0].id;
  theme();render();
@@ -228,6 +228,18 @@ function settingsPage(){
    node("div",{class:"settings-row"},node("div",{},node("strong",{text:"Color theme"}),
     node("div",{class:"hint",text:"Matches Zero1Local's original light and dark themes."})),choices)
   )),
+  section("Software updates",node("div",{class:"detail-main"},
+   node("div",{class:"settings-row"},
+    node("div",{},node("strong",{text:"Zero1Local Desktop " + (S.updater.version||"development preview")}),
+     node("div",{class:"hint",text:"Channel: "+(S.updater.channel||"beta")+" · Source: GitHub Releases"})
+    ),
+    button(S.updater.checking?"Checking for updates…":"Check for updates",checkUpdates,
+     "btn btn-primary",S.busy||S.updater.checking||!S.updater.supported)
+   ),
+   S.updater.reason?node("p",{class:"hint",text:S.updater.reason}):node("p",{class:"hint",text:"Checks for newer beta releases. Only explicitly selected updates are downloaded, verified against SHA256SUMS, and installed with restart confirmation. No automatic NAS changes."}),
+   S.updater.lastError?node("p",{class:"warning",text:S.updater.lastError}):null,
+   node("div",{class:"form-actions"},button("View releases",openReleases))
+  )),
   section("About",node("div",{class:"detail-main"},
    node("h2",{text:"Zero1Local Desktop"}),
    node("p",{class:"muted",text:"A Gigabyte Grove project. Native Go desktop companion for Windows, Linux, and macOS."}),
@@ -264,6 +276,30 @@ function forget(d){
 function confirmUnmount(m){
  dialog("Disconnect share?",node("div",{},node("p",{text:"Disconnect "+m.server+"/"+m.remote+" from "+(m.target||"this computer")+"? Any open files may be affected. This will not delete NAS data."})),
  ()=>task(async()=>{const result=await request("/api/unmount",{id:m.id});await reload();flash(result.message)}),"Disconnect");
+}
+async function checkUpdates(){
+ await task(async()=>{
+  await request("/api/updates/check",{});
+  await reload();
+  flash("The native update window is checking GitHub Releases.");
+  pollUpdater();
+ });
+}
+async function pollUpdater(){
+ if(!S.updater.checking)return;
+ await new Promise(resolve=>setTimeout(resolve,1500));
+ try{
+  const result=await request("/api/state");
+  S.updater=result.updater||S.updater;
+  if(S.view==="settings")render();
+  if(S.updater.checking)pollUpdater();
+ }catch(e){flash("Could not refresh update state: "+e.message)}
+}
+async function openReleases(){
+ await task(async()=>{
+  await request("/api/updates/releases",{});
+  flash("Opening Zero1Local Desktop release downloads");
+ });
 }
 async function discover(){await task(async()=>{
  flash("Scanning the current private LAN...");

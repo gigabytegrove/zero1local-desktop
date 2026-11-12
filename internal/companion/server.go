@@ -25,6 +25,7 @@ type Server struct {
  listener net.Listener
  server *http.Server
  origin string
+ updates updateControl
 }
 func New(store *Store,launcher func(string)error)(*Server,error){
  if store==nil{return nil,errors.New("settings store is required")}
@@ -44,6 +45,7 @@ func(s *Server)Start()(string,error){
  return s.origin,nil
 }
 func(s *Server)Shutdown(ctx context.Context)error{
+ s.stopUpdater()
  if s.server==nil{return nil}
  return s.server.Shutdown(ctx)
 }
@@ -63,6 +65,8 @@ func(s *Server)Handler()http.Handler{
  m.HandleFunc("POST /api/mount",s.mountAPI)
  m.HandleFunc("POST /api/unmount",s.unmountAPI)
  m.HandleFunc("POST /api/shares",s.sharesAPI)
+ m.HandleFunc("POST /api/updates/check",s.updateCheckAPI)
+ m.HandleFunc("POST /api/updates/releases",s.updateReleasesAPI)
  return http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
   if r.Host=="" || r.Host!=strings.TrimPrefix(s.origin,"http://"){
    http.Error(w,"invalid localhost host",http.StatusForbidden);return
@@ -97,7 +101,7 @@ func(s *Server)bad(w http.ResponseWriter,err error){
  s.writeJSON(w,400,map[string]any{"error":err.Error()})
 }
 func(s *Server)state(w http.ResponseWriter,r *http.Request){
- s.writeJSON(w,200,map[string]any{"settings":s.store.Snapshot(),"platform":s.platform()})
+ s.writeJSON(w,200,map[string]any{"settings":s.store.Snapshot(),"platform":s.platform(),"updater":s.UpdateStatus()})
 }
 func(s *Server)discover(w http.ResponseWriter,r *http.Request){
  ctx,cancel:=context.WithTimeout(r.Context(),28*time.Second)
