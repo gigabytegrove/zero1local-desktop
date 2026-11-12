@@ -1,0 +1,48 @@
+# Zero1Local Desktop release and update contract
+
+## Artifact provenance
+
+The existing dockeradm build from `d18ab27f459b9151622d8031badf08263e3102b0` produced three verified files: Linux amd64 .deb, Linux amd64 .tar.gz and Windows amd64 .zip. Tag **v0.1.0-beta.1** at precisely that commit. Never pretend this initial binary includes code subsequently committed to `main`.
+
+Build updater-enabled **v0.1.0-beta.2** only after committing all Go source, `desktop/go.mod` changes and generated `desktop/go.sum`. Embed the version `0.1.0-beta.2` in both native binaries using `-ldflags "-X main.currentVersion=0.1.0-beta.2"`. Tag the exact final build commit.
+
+## Release asset naming
+
+For each release publish **both** human installation packages and dedicated machine-updater payloads:
+
+| Asset | Purpose |
+| --- | --- |
+| `Zero1Local-Desktop-<commit12>-linux-amd64.deb` | Debian package install/update |
+| `Zero1Local-Desktop-<commit12>-linux-amd64.tar.gz` | Human portable Linux archive |
+| `Zero1Local-Desktop-<commit12>-windows-amd64.zip` | Human portable Windows archive including README |
+| `Zero1Local-Desktop-Updater-linux-amd64.tar.gz` | **Exactly one** top-level Linux binary, `zero1local-desktop` |
+| `Zero1Local-Desktop-Updater-windows-amd64.zip` | **Exactly one** top-level Windows binary, `Zero1Local-Desktop.exe` |
+| `SHA256SUMS` | SHA-256 for every binary and package asset above |
+
+The Wails updater explicitly selects only the exact `-Updater-` names for the running platform; never rename them, introduce a second top-level file, or select `.deb` for Wails binary replacement. Archives with two entries are rejected by Wails.
+
+The GitHub Releases provider uses `Prerelease: true` for the beta channel. Version tags must be semver: `v0.1.0-beta.1`, `v0.1.0-beta.2` and onward. Update version code at every release.
+
+For macOS, add `Zero1Local-Desktop-Updater-darwin-amd64.zip` and `Zero1Local-Desktop-Updater-darwin-arm64.zip` **only after** packaging actual single-top-level signed/notarized `.app` bundles on an appropriate platform. Do not manufacture fake macOS binaries.
+
+## Release gate
+
+1. Validate portable Go tests, native Wails Go tests, `go vet`, target architecture and clean Linux/Windows builds.
+2. Validate `SHA256SUMS` offline for all five packages, and archive single-entry rules.
+3. Confirm tag SHA exactly equals source used to build the assets; do not retag a published release.
+4. Create a GitHub **prerelease** with all assets and notes. Keep stable/latest promotion disabled.
+5. Confirm public GitHub API reports the exact tag and all six required assets, and redownload/verify at least one.
+6. Test the native app on both Windows and Linux; test that current beta reports **Up to date**, then a later release stages and applies atomically to a writable portable build.
+7. For Debian-installed Linux, verify the app downloads the newer .deb, rejects checksum failures, preserves existing files and requires an operator-managed installation. Do not direct-swap dpkg-owned binaries.
+
+## Distribution and security
+
+No GitHub Actions or credentials on end-user machines. The GitHub provider uses public GitHub Releases and SHA256SUMS over HTTPS. This is a **digest-only beta trust model**, not a cryptographic signature anchored in a publisher public key. A production promotion must add independent Ed25519 verification with an embedded public key and an owner-controlled signing process; never commit a private signing key.
+
+No GitHub release asset should be replaced or overwritten after publication. If a packaged binary is defective, make a newly versioned release. The public repository contains only desktop companion source, not private NAS appliance source.
+
+## Existing bootstrap build
+
+The owner-reported successful builder log recorded `BUILD_AND_PACKAGING_SUCCESS` and verified three original archives, with files located under `/root/zero1local-desktop/dist` on dockeradm. This conversation does **not** have direct access to that server's filesystem. Publication requires uploading those exact original files from dockeradm using the GitHub CLI.
+
+See `docs/releases/v0.1.0-beta.1.md` and `docs/releases/v0.1.0-beta.2.md` for release notes.

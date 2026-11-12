@@ -13,14 +13,23 @@ A genuine Go/Wails native desktop companion for the existing Zero1Local NAS plat
 - OS share mapping requests: Windows native SMB drive letter, Linux GVfs SMB, Linux NFSv3 using pkexec, and macOS Finder SMB URLs.
 - Optional authenticated read-only SMB/NFS share inventory against existing NAS endpoints over verified HTTPS (no passwords or API keys are persisted).
 
+## GitHub Releases and built-in updates
+
+- **v0.1.0-beta.1 (bootstrap)** is built from commit `d18ab27f459b9151622d8031badf08263e3102b0`: Linux x64 .deb and portable .tar.gz, plus Windows x64 portable .zip. The owner has confirmed a successful Docker build and SHA-256 validation, but not native GUI/runtime acceptance. **These original binaries do not contain the updater.**
+- **v0.1.0-beta.2** contains the GitHub Releases updater. In native **Settings → Software updates**, choose **Check for updates**; a matching tray menu action is also present. Wails downloads only the platform's dedicated updater bundle and checks `SHA256SUMS` before presenting the restart/install action. It never installs updates on startup.
+- **Linux Debian-managed installs** must remain package-manager managed. Settings provides **Download verified .deb** to fetch a newer Debian package, verify its SHA-256 digest and save it in the user's Downloads folder. The user installs it using their distribution's package manager; the companion does not silently gain root privileges.
+- **macOS** updater support is implemented for future signed/notarized single-entry .app bundles, but no macOS release has been built.
+- **No native GUI update has yet been confirmed on actual target desktops.** SHA-256 supplied with a GitHub Release validates asset integrity against that release, not publisher signature authenticity.
+- Release asset names, bootstrap provenance and exact manual publishing procedure are documented in [RELEASING.md](docs/RELEASING.md).
+
 ## Current limitations — not a production release
 
-- Native Wails binaries are not yet built, code-signed, packaged, or tested on real Windows/macOS/Linux systems.
+- Linux amd64 and Windows amd64 native binaries have been built and packaged on dockeradm from the bootstrap commit; their desktop GUI, system tray and share mapping behavior have not been tested on real target computers. The new updater implementation is source-committed but requires a new build before it can be published.
 - Zero1Local management opens in the **system browser**, not an embedded NAS-origin webview, until remote-origin isolation is verified. The original interface and all its authorized management features are available there.
 - Windows NFSv3 and macOS NFSv3 mount adapters remain unfinished. Existing NFS management must not be confused with SMB mapping.
 - macOS Finder receives SMB URL mount requests but the app does not yet prove that the OS completed the mount.
 - Credentials and mapped drive persistence/auto-reconnection are not implemented. The app never asks to disable NAS permissions or weaken filesystem access.
-- Hardware verification, shared credential-manager integration, signed release, and native installer remain open engineering milestones.
+- Hardware verification, shared credential-manager integration, signed macOS release, Windows installer and cryptographically signed update manifests remain open engineering milestones.
 
 ## Go core (tested)
 
