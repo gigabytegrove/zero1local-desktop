@@ -41,8 +41,7 @@ func(OSRunner)Run(ctx context.Context,name string,args ...string)(string,error){
  return strings.TrimSpace(string(data)),err
 }
 func validateHost(host string)error{
- if strings.ContainsAny(host,"@\/?#%[] 	
-") || !hostnamePattern.MatchString(host) || strings.HasPrefix(host,"-") || strings.HasSuffix(host,"."){
+ if strings.ContainsAny(host,"@\\/?#%[] \t\r\n") || !hostnamePattern.MatchString(host) || strings.HasPrefix(host,"-") || strings.HasSuffix(host,"."){
   return errors.New("invalid share host")
  }
  if ip:=net.ParseIP(host);ip!=nil&&ip.To4()==nil{return errors.New("IPv6 mapping unavailable in this release")}
@@ -58,8 +57,7 @@ func validateRequest(req MountRequest,goos string)(MountRequest,error){
  case "smb":
   if !sharePattern.MatchString(req.Remote)||req.Remote=="."||req.Remote==".."{return req,errors.New("invalid SMB share name")}
  case "nfs":
-  if !nfsExportPattern.MatchString(req.Remote)||strings.Contains(req.Remote,"//")||strings.Contains(req.Remote,"..")||strings.ContainsAny(req.Remote,":\
-	"){
+  if !nfsExportPattern.MatchString(req.Remote)||strings.Contains(req.Remote,"//")||strings.Contains(req.Remote,"..")||strings.ContainsAny(req.Remote,":\\\n\r\t"){
    return req,errors.New("invalid NFSv3 export path")
   }
  default:
@@ -83,8 +81,7 @@ func validateRequest(req MountRequest,goos string)(MountRequest,error){
  return req,nil
 }
 func validateUnixMountPath(target string)error{
- if target==""||!filepath.IsAbs(target)||filepath.Clean(target)!=target||target=="/"||strings.ContainsAny(target,"
-"){
+ if target==""||!filepath.IsAbs(target)||filepath.Clean(target)!=target||target=="/"||strings.ContainsAny(target,"\n\r"){
   return errors.New("target must be a clean absolute non-root path")
  }
  info,err:=os.Lstat(target)
