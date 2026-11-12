@@ -80,8 +80,7 @@ func (s *Store) writeLocked()error{
  defer os.Remove(f.Name())
  defer f.Close()
  if err=f.Chmod(0600);err!=nil{return err}
- if _,err=f.Write(append(b,'
-'));err!=nil{return err}
+ if _,err=f.Write(append(b,'\n'));err!=nil{return err}
  if err=f.Sync();err!=nil{return err}
  if err=f.Close();err!=nil{return err}
  return os.Rename(f.Name(),s.path)
