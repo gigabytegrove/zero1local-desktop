@@ -49,11 +49,18 @@ func run() error {
   defer cancel()
   if err:=svc.Shutdown(ctx);err!=nil{log.Print(err)}
  }()
+ var window *application.WebviewWindow
  app:=application.New(application.Options{
+  SingleInstance:&application.SingleInstanceOptions{
+   UniqueID:"net.gigabytegrove.zero1local.desktop",
+   OnSecondInstanceLaunch:func(_ application.SecondInstanceData){
+    if window!=nil{window.Show();window.Focus()}
+   },
+  },
   Name:"Zero1Local Desktop", Description:"Zero1Local multi-appliance desktop companion",
   Mac:application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed:false},
  })
- window:=app.Window.NewWithOptions(application.WebviewWindowOptions{
+ window=app.Window.NewWithOptions(application.WebviewWindowOptions{
   Name:"desktop-workspace", Title:"Zero1Local Desktop",
   Width:1180,Height:790,MinWidth:660,MinHeight:480,
   BackgroundColour:application.NewRGB(242,245,248),
