@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="csrf-token" content="__LOCAL_TOKEN__">
+<meta name="theme-color" content="#f2f5f8">
+<title>Zero1Local Desktop</title>
+<link rel="stylesheet" href="/app.css">
+<script defer src="/app.js"></script>
+</head><body>
+<div class="app-frame">
+<aside class="sidebar" aria-label="Primary navigation">
+ <div class="side-brand"><img src="/brand-light.png" alt="Zero1Local" width="176" height="42"></div>
+ <div class="side-product">Desktop Companion</div>
+ <div class="rail-label">Workspace</div>
+ <nav class="application-rail" aria-label="Desktop sections">
+  <button class="app-nav-item active" type="button" data-nav="home"><span class="nav-symbol" aria-hidden="true">⌂</span> Overview</button>
+  <button class="app-nav-item" type="button" data-nav="devices"><span class="nav-symbol" aria-hidden="true">▣</span> My appliances</button>
+  <button class="app-nav-item" type="button" data-nav="shares"><span class="nav-symbol" aria-hidden="true">▤</span> Shares &amp; access</button>
+  <button class="app-nav-item" type="button" data-nav="mounts"><span class="nav-symbol" aria-hidden="true">⌘</span> Mapped drives</button>
+  <button class="app-nav-item" type="button" data-nav="settings"><span class="nav-symbol" aria-hidden="true">⚙</span> Settings</button>
+ </nav>
+ <div class="rail-label devices-label">Connected appliances</div>
+ <div class="device-rail" id="device-rail"><span class="rail-empty">No appliances saved</span></div>
+ <div class="side-footer"><span class="connection-dot"></span><span>Local desktop application<small>Windows · Linux · macOS</small></span></div>
+</aside>
+<div class="workspace">
+ <header class="topbar"><div class="topbar-identity"><strong id="top-title">Overview</strong><small id="top-subtitle">Zero1Local on this computer</small></div><div class="top-actions"><button class="btn btn-quiet" id="btn-discover" type="button">Scan network</button><button class="btn btn-primary" id="btn-add" type="button">+ Add appliance</button></div></header>
+ <main id="main" class="page" tabindex="-1"><div class="loading">Loading your desktop workspace…</div></main>
+</div></div>
+<dialog id="modal" aria-labelledby="modal-title"><form method="dialog" id="modal-form"><div class="dialog-head"><h2 id="modal-title">Add appliance</h2><button class="icon-button" id="modal-close" aria-label="Close dialog" value="cancel">×</button></div><div id="modal-body"></div><div class="dialog-actions"><button class="btn btn-quiet" value="cancel">Cancel</button><button class="btn btn-primary" id="modal-submit" value="confirm">Continue</button></div></form></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body></html>
