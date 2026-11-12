@@ -1,0 +1,12 @@
+.DS_Store
+*.exe
+*.app/
+*.dmg
+*.deb
+*.rpm
+/dist/
+/build/
+/desktop/bin/
+/desktop/frontend/bindings/
+/desktop/frontend/dist/
+*.log
