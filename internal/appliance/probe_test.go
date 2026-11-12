@@ -58,3 +58,25 @@ func TestDiscoverContextCancellation(t *testing.T) {
     _ = Discover(ctx, []string{"198.18.0.1", "198.18.0.2"}, 250*time.Millisecond)
     if time.Since(started) > 500*time.Millisecond { t.Fatal("cancellation was not bounded") }
 }
+
+
+func TestProbeDoesNotFollowRedirect(t *testing.T) {
+    destination := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        t.Error("redirect destination should not have been contacted")
+    }))
+    defer destination.Close()
+    source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        http.Redirect(w, r, destination.URL, http.StatusFound)
+    }))
+    defer source.Close()
+    if _, err := Probe(context.Background(), source.URL, time.Second); err == nil { t.Fatal("redirected endpoint accepted") }
+}
+
+func TestProbeRejectsHTML(t *testing.T) {
+    source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "text/html")
+        _,_ = w.Write([]byte(`{"ok":true,"service":"zero1-local"}`))
+    }))
+    defer source.Close()
+    if _, err := Probe(context.Background(), source.URL, time.Second); err == nil { t.Fatal("HTML endpoint accepted") }
+}
