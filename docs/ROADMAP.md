@@ -1,40 +1,30 @@
-# Implementation and acceptance roadmap
+# Zero1Local Desktop implementation status (2026-11-12)
 
-Status legend: **DONE** (implemented and verified), **NEXT** (not yet implemented), **GATED** (requires OS/hardware or security acceptance).
+## Completed in source (portable Go verified)
+- Existing Zero1Local management API endpoints reviewed against private NAS source.
+- First-party brand parity tokens and two original PNG logo assets in the private desktop repository.
+- Go device scanning and manual health identification; bounded current private /24s, ports 80 and 8088.
+- Persistent user-only installation list and theme settings; no passwords saved.
+- Desktop workspace JS/CSS with overview, appliances, share access, mapping list and settings views.
+- Local Go HTTP desktop service and browser protections. Original NAS routes are not proxied or altered.
+- Windows SMB drive-letter command adapter, Linux GVfs SMB and NFSv3 (with pkexec) and macOS SMB Finder launcher.
+- Read-only Zero1Local shares and NFS export API requests using per-request bearer token **only** over HTTPS.
+- Go tests for portable core, store, unauthorized API calls, mount validation and unknown appliance.
 
-## Milestone 0 — product and source contract
-- **DONE:** Private desktop repository initialized with product, architecture, security and mount contracts.
-- **DONE:** Verified actual Zero1Local `/healthz`, `/api/status`, `/api/shares`, `/api/nfs/exports` and session routes against current private source.
-- **DONE:** Chosen Wails v3.0.0 stable desktop framework, confirmed official Windows/macOS/Linux and tray support.
-- **DONE:** Audited the current NAS source CSS and locked desktop light/dark tokens, navigation dimensions and original approved logo filenames to Zero1Local's existing design system.
-- **NEXT:** Embed original logo bytes from private Zero1Local source without alteration; confirm app bundle ID, signing identities and app-update release owner.
+## Native host present, platform validation still blocked
+- Wails v3.0.0 native window and system tray source is committed in desktop/main.go.
+- Go 1.26.10 and OS WebKit/GTK/WebView2 dependencies are needed for native compilation.
+- This environment does not have that Go toolchain or all target OS runtimes; native compile/test is not claimed.
+- Production-quality app icon crops, code signing, notarization, Windows MSI/EXE installers, Linux packages and macOS bundles are pending.
 
-## Milestone 1 — functional desktop foundation
-- **NEXT:** Wails app shell with the **existing Zero1Local** light/dark themes, 232px navigation rail, 60px topbar, exact source logos, familiar settings/tables/icons, appliance shelf and accessible empty/error states.
-- **NEXT:** Visually compare desktop shell and built-in NAS UI on Windows, Linux and macOS in both themes; do not sign off based only on matching colors.
-- **NEXT:** Native tray on Windows/macOS/Linux; hide-to-tray, quit, window restore and single-instance behavior.
-- **DONE:** Pure-Go bounded discovery of candidate LAN Zero1Local appliances with read-only health/status API validation, HTTP origin validation, cancellation and tests; diagnostic CLI.
-- **NEXT:** Desktop integration, user-approved device registry, duplicate reconciliation, authenticated enrollment, optional CIDRs and mDNS/DNS-SD.
-- **NEXT:** Secure trusted-appliance enrollment and TLS fingerprint change warning.
-- **NEXT:** Embedded authenticated Zero1Local admin window with tested isolation from privileged desktop bindings.
+## Essential outstanding acceptance work
+- [ ] Secure NAS-origin embedded WebView so browser scripts cannot invoke desktop privileged APIs. Current implementation opens existing NAS UI externally.
+- [ ] Windows native SMB credential manager prompts and mount verification; detect conflicts with active mappings.
+- [ ] Native Windows NFSv3 and macOS NFSv3 mount adapters with identity/ACL prerequisites and real test evidence.
+- [ ] Verified Linux mount status, reconnection and sleep/wake handling; no blind source-host remapping.
+- [ ] Appliance identity pinning, TLS-fingerprint changes, mDNS/DNS-SD, explicitly authorized cross-VLAN CIDRs, and current reachability.
+- [ ] Confirmed system tray icons, startup at login (opt-in), per-OS notifications and host-specific packagers.
+- [ ] End-to-end tests on a nonproduction NAS including OS credentials, read/write ACLs, offline recovery and all management routes.
+- [ ] Signed release artifacts and SHA-256 manifest uploaded directly to Releases by native builders (no GitHub Actions).
 
-## Milestone 2 — real share mounting
-- **NEXT:** Authenticated catalog adapter for installed-version SMB and NFS response shapes.
-- **NEXT:** Windows SMB drive-letter map/unmap, OS credential prompts, mount status and collision handling.
-- **NEXT:** Linux SMB desktop mount and NFSv3 mount with narrow privilege consent.
-- **NEXT:** macOS SMB Finder integration and system NFSv3 mounts.
-- **NEXT:** Persistent opt-in reconnect and recover after sleep, Wi-Fi changes and multi-VLAN transitions.
-
-## Milestone 3 — release quality
-- **NEXT:** OS-native autostart toggles and selective notifications.
-- **NEXT:** App settings, device rename/removal and mapping repair.
-- **NEXT:** UI and service regression tests; `go test -race`, `go vet`, `wails3 doctor` and native build validation.
-- **GATED:** Native signed Win x64/ARM64 package, Linux x64/ARM64 packaging, macOS Intel/Apple Silicon bundle/notarization.
-- **GATED:** Manual smoke tests with non-production test NAS and real share/user ACLs; no unattended modification of operational NAS units.
-- **GATED:** Alpha GitHub Release with reproducible build record, checksum manifest, provenance and known limitations.
-
-## Decision gates
-1. **Embedded webview origin isolation:** may not be claimed done without a reproducible malicious-page test on all three platforms.
-2. **NFS Windows UX:** must inspect Windows feature availability, edition support, server-export ACL and UID/GID behavior; never assume a command success means write access.
-3. **Cross-VLAN discovery:** mDNS not expected across routers unless reflected; allow user-authorized CIDRs and explicit endpoints without promoting invasive broad scans.
-4. **Mounted share persistence:** must not reassign a drive letter/mount path already used by another filesystem.
+Do not claim this first substantive code pass is an installable stable application. Do not automatically update or alter in-service Zero1Local appliances.
