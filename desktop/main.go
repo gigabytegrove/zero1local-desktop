@@ -1,7 +1,10 @@
 package main
 
 import (
+ "bytes"
  "context"
+ "image"
+ "image/png"
  "errors"
  "fmt"
  "log"
@@ -59,6 +62,9 @@ func run() error {
  window.Center()
  window.RegisterHook(events.Common.WindowClosing,func(e *application.WindowEvent){window.Hide();e.Cancel()})
  tray:=app.SystemTray.New()
+ if art,err:=companion.BrandLightPNG();err==nil {
+  if icon,err:=squareIcon(art);err==nil{tray.SetIcon(icon)}
+ }
  tray.SetTooltip("Zero1Local Desktop")
  menu:=app.Menu.New()
  menu.Add("Open Zero1Local Desktop").OnClick(func(_ *application.Context){window.Show();window.Focus()})
@@ -71,3 +77,26 @@ func run() error {
  return app.Run()
 }
 func main(){if err:=run();err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}}
+
+
+// squareIcon makes a small system-tray crop of the official first-party logo.
+// Source artwork stays byte-for-byte unchanged inside the embedded assets.
+func squareIcon(data []byte)([]byte,error){
+ src,err:=png.Decode(bytes.NewReader(data))
+ if err!=nil{return nil,err}
+ b:=src.Bounds()
+ side:=b.Dy()
+ if b.Dx()<side{side=b.Dx()}
+ if side<1{return nil,errors.New("empty source brand image")}
+ icon:=image.NewRGBA(image.Rect(0,0,64,64))
+ for y:=0;y<64;y++{
+  for x:=0;x<64;x++{
+   sx:=b.Min.X+x*side/64
+   sy:=b.Min.Y+y*side/64
+   icon.Set(x,y,src.At(sx,sy))
+  }
+ }
+ var out bytes.Buffer
+ if err:=png.Encode(&out,icon);err!=nil{return nil,err}
+ return out.Bytes(),nil
+}
