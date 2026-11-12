@@ -22,7 +22,8 @@ import (
 const releaseAPI = "https://api.github.com/repos/gigabytegrove/zero1local-desktop/releases?per_page=30"
 const debianAssetLimit int64 = 256 << 20
 
-var debianAssetPattern = regexp.MustCompile(`^Zero1Local-Desktop-[A-Za-z0-9._+~-]+-linux-amd64\.deb$`)\nvar versionTagPattern = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$`)
+var debianAssetPattern = regexp.MustCompile(`^Zero1Local-Desktop-[A-Za-z0-9._+~-]+-linux-amd64\.deb$`)
+var versionTagPattern = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$`)
 
 type releaseAsset struct {
 	Name string `json:"name"`
