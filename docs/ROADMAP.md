@@ -6,10 +6,12 @@ Status legend: **DONE** (implemented and verified), **NEXT** (not yet implemente
 - **DONE:** Private desktop repository initialized with product, architecture, security and mount contracts.
 - **DONE:** Verified actual Zero1Local `/healthz`, `/api/status`, `/api/shares`, `/api/nfs/exports` and session routes against current private source.
 - **DONE:** Chosen Wails v3.0.0 stable desktop framework, confirmed official Windows/macOS/Linux and tray support.
-- **NEXT:** Confirm official product logo asset and app bundle ID, signing identities, app-update release owner.
+- **DONE:** Audited the current NAS source CSS and locked desktop light/dark tokens, navigation dimensions and original approved logo filenames to Zero1Local's existing design system.
+- **NEXT:** Embed original logo bytes from private Zero1Local source without alteration; confirm app bundle ID, signing identities and app-update release owner.
 
 ## Milestone 1 — functional desktop foundation
-- **NEXT:** Wails app shell with approved branding, appliance shelf, status, helpful empty/error states and keyboard navigation.
+- **NEXT:** Wails app shell with the **existing Zero1Local** light/dark themes, 232px navigation rail, 60px topbar, exact source logos, familiar settings/tables/icons, appliance shelf and accessible empty/error states.
+- **NEXT:** Visually compare desktop shell and built-in NAS UI on Windows, Linux and macOS in both themes; do not sign off based only on matching colors.
 - **NEXT:** Native tray on Windows/macOS/Linux; hide-to-tray, quit, window restore and single-instance behavior.
 - **DONE:** Pure-Go bounded discovery of candidate LAN Zero1Local appliances with read-only health/status API validation, HTTP origin validation, cancellation and tests; diagnostic CLI.
 - **NEXT:** Desktop integration, user-approved device registry, duplicate reconciliation, authenticated enrollment, optional CIDRs and mDNS/DNS-SD.

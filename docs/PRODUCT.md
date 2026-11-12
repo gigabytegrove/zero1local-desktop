@@ -12,15 +12,20 @@ A native Windows, Linux, and macOS companion that makes several Zero1Local NAS i
 6. **Background:** tray/menu bar opens app, lists recent devices/shares, shows disconnected/offline status, and quits fully. Native startup toggle is opt-in. Quitting does not unmount user data without explicit request.
 7. **Accessibility:** keyboard traversal, 4.5:1 body contrast, screen-reader labels, reduced motion, clear empty/loading/error/success/disabled states, minimum 360px responsive layout.
 
-## Visual identity
-Personality: **calm, tactile, reliable**; reference: a well-organized physical workstation and modern operating-system disk utility, not an administrative analytics dashboard.
-- Light palette: canvas #F7F6F1, surface #FFFFFF, ink #26302B, secondary #56645A, evergreen #24583E, sage #DCE9DE, warm action #AA5B23, critical #A4312D, rule #DBDFD7.
-- Fonts: native UI system sans (Segoe UI on Windows, SF on macOS, system UI on Linux); monospace for paths, hostnames, drive letters.
-- Layout: left installation rail (216px on desktop), center file/workspace overview, compact device utility strip, optional management workspace tabs. No repetitive boxed-card grid.
-- Navigation: persistent appliance list; main navigation Overview / Shares / Mounts / Manage / Settings; tray shortcuts.
-- Shape/depth: flat soft surfaces, 1px separators, 4–8px radii, very light shadows only for popovers.
-- Imagery: existing approved Zero1Local logo; authentic drive, network and device glyphs; no stock photos.
-- Motion: 180ms transitions, reduced-motion suppression. Signature: connected NAS nodes as an orderly left-edge appliance shelf, with each mounted share displayed as a row and OS drive/mount badge.
+## Visual identity — locked to Zero1Local
+This product is a **first-party Zero1Local companion**, not a separately branded disk utility. It must reproduce the existing NAS admin UI's design language while adding multi-appliance switching and native desktop operations. The source of truth is `gigabytegrove/zero1local-source/web/app.css` and its approved `web/assets/zero1-local-logo-*.png` graphics. Do not replace it with an unrelated green/cream theme.
+
+- **Personality:** familiar, functional, understated; reference: the existing Zero1Local admin application, not a new product concept.
+- **Light theme:** actual source-derived tokens: background `#F2F5F8`, surface `#FFFFFF`, ink `#182230`, muted `#68768A`, primary/navy `#132840`, secondary/navy `#1D3D60`, blue accent `#1768B7`, soft blue `#E9F2FB`, line `#DFE5EB`.
+- **Dark theme:** actual source-derived tokens: background `#111820`, surface `#17212B`, raised `#202C38`, ink `#E6EDF4`, muted `#9AACBD`, accent `#62A8E8`, line `#2D3B49`.
+- **Typography:** `Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`; monospace for hostnames, export paths and drive letters.
+- **Layout:** existing Zero1Local application rail (`232px`) and `60px` top bar, source-like navigation, typography, icon treatments, tables and settings; keep the NAS picker visually integrated with the same navigation system.
+- **Shape/depth:** existing `8px` and `6px` base radii, 1px dividers and restrained surface shadows. Avoid decorative gradients, unrelated icon sets and newly invented controls.
+- **Imagery:** reuse the original Zero1Local light and dark logo assets byte-for-byte from its private source; retain original proportions and never recolor or re-create them.
+- **Theme behavior:** explicit light/dark choice with persistent user setting and operating-system-follow option; maintain equivalent contrast, hover/focus and disabled states. Do not introduce a new design system.
+- **Motion:** 150–250ms lightweight transitions, disabled under `prefers-reduced-motion`. Familiar status indications and share mapping rows are native desktop additions within the established brand.
+
+See [BRAND.md](BRAND.md) for source references, exact full token contract, parity acceptance, and implementation guidance.
 
 ## Exclusions
 No full file-sync engine, remote registration service, remote VPN provisioning, cloud identity, arbitrary root filesystem browsing, credentials embedded in commands, iSCSI invention, or automatic NAS upgrades.

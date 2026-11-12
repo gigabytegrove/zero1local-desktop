@@ -34,6 +34,9 @@ Source examined: private `gigabytegrove/zero1local-source` as of 2026-11-12; cod
 ## Discovery
 Priority: (1) known/pinned entries; (2) mDNS/DNS-SD when advertised by a compatible server; (3) bounded current-LAN IPv4 probes of management port 80 and legacy 8088, with concurrency/time limits; (4) explicitly provided CIDRs and manually added hostnames/URLs. Do **not** enumerate an entire routed /16 by default. Report service and hostname separately; many devices behind reverse proxies must not collapse into one appliance. Do not accept an HTTP redirect as proof of product identity.
 
+## First-party visual parity
+The local desktop shell inherits the canonical Zero1Local visual language from `web/app.css` and approved logo assets in the private NAS source repository. Desktop-specific pages such as the appliance picker, mount editor and tray menu must use those same design tokens, icons, type scale and accessible interaction patterns. The management webview renders the installed NAS UI directly; never inject a competing theme or overwrite its existing UI components. See [BRAND.md](BRAND.md).
+
 ## Management webview
 The desktop shell and remote appliance webview must be separate windows. Webview contents loaded from a NAS are **remote untrusted content**; do not expose privileged desktop Go services or OS mount APIs to that origin. Verify Wails bridge isolation/origin allowlisting at the pinned v3 release **before enabling in-app remote navigation**. If the platform cannot enforce this security boundary, open the authenticated console in the system browser and report the embedded-console requirement as blocked instead of weakening the boundary. Existing app navigation and cookies remain on the appliance origin.
 

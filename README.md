@@ -14,7 +14,7 @@ Go-native desktop companion for [Zero1Local](https://github.com/gigabytegrove/ze
 
 ## Engineering decisions
 
-Go application with [Wails v3.0.0](https://v3.wails.io/) for native Windows/macOS/Linux webviews and system trays. Separate portable Go domain packages from platform-specific mounting and privilege workflows. The bundled desktop shell has its own identity and is deliberately **not** a restyle of Zero1Local's administrator UI.
+Go application with [Wails v3.0.0](https://v3.wails.io/) for native Windows/macOS/Linux webviews and system trays. Separate portable Go domain packages from platform-specific mounting and privilege workflows. The desktop shell **must match the existing Zero1Local design system**: the official logo, source-derived light/dark palettes, Inter/system font stack, icon family, 232px application rail, 60px top bar, and familiar navigation/component treatment. It adds a multi-appliance shelf and mount controls without inventing a new brand. See [brand parity contract](docs/BRAND.md).
 
 The existing Zero1Local source is under the private `gigabytegrove/zero1local-source` repo, currently a v1.4.3 NFS-first **source candidate**, not necessarily what each installed NAS is running. Runtime capability checks, not version-string guesses, determine whether an appliance offers an operation.
 
@@ -34,6 +34,7 @@ See [discovery diagnostic](docs/PROBE.md). The native desktop shell, system tray
 ## Repository documentation
 
 - [Product and UX specification](docs/PRODUCT.md)
+- [Locked Zero1Local brand and UI parity contract](docs/BRAND.md)
 - [Architecture and source integration](docs/ARCHITECTURE.md)
 - [Platform share-mount contract](docs/MOUNTING.md)
 - [Security and threat model](docs/SECURITY.md)
