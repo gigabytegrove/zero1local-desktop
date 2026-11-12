@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"sync"
+	"strings"
 	"time"
 )
 
@@ -16,6 +17,7 @@ type UpdateStatus struct {
 	Version    string    `json:"version"`
 	Channel    string    `json:"channel"`
 	Supported  bool      `json:"supported"`
+	PackageDownload bool `json:"packageDownload"`
 	Reason     string    `json:"reason,omitempty"`
 	Checking   bool      `json:"checking"`
 	LastError  string    `json:"lastError,omitempty"`
@@ -38,6 +40,7 @@ func (s *Server) ConfigureUpdater(version, channel string, run func(context.Cont
 		Version:    version,
 		Channel:    channel,
 		Supported:  run != nil,
+		PackageDownload: s.goos == "linux" && run == nil && strings.Contains(unavailableReason, "system-installed Linux application"),
 		Reason:     unavailableReason,
 		ReleaseURL: publicReleasesURL,
 	}

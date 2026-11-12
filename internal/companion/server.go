@@ -67,6 +67,7 @@ func(s *Server)Handler()http.Handler{
  m.HandleFunc("POST /api/shares",s.sharesAPI)
  m.HandleFunc("POST /api/updates/check",s.updateCheckAPI)
  m.HandleFunc("POST /api/updates/releases",s.updateReleasesAPI)
+ m.HandleFunc("POST /api/updates/download-deb",s.downloadDebianAPI)
  return http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
   if r.Host=="" || r.Host!=strings.TrimPrefix(s.origin,"http://"){
    http.Error(w,"invalid localhost host",http.StatusForbidden);return

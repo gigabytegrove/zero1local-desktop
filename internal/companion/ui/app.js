@@ -238,7 +238,12 @@ function settingsPage(){
    ),
    S.updater.reason?node("p",{class:"hint",text:S.updater.reason}):node("p",{class:"hint",text:"Checks for newer beta releases. Only explicitly selected updates are downloaded, verified against SHA256SUMS, and installed with restart confirmation. No automatic NAS changes."}),
    S.updater.lastError?node("p",{class:"warning",text:S.updater.lastError}):null,
-   node("div",{class:"form-actions"},button("View releases",openReleases))
+   S.updater.packageDownload?node("p",{class:"hint",text:"This Linux installation is managed by Debian packages. Download a newer SHA-256-verified .deb and install it with your distribution’s package manager; no unattended root changes."}):null,
+   S.downloadedPackage?node("p",{class:"warning",text:S.downloadedPackage}):null,
+   node("div",{class:"form-actions"},
+    S.updater.packageDownload?button("Download verified .deb",downloadDebianUpdate,
+      "btn btn-primary",S.busy||S.updater.checking):null,
+    button("View releases",openReleases))
   )),
   section("About",node("div",{class:"detail-main"},
    node("h2",{text:"Zero1Local Desktop"}),
@@ -294,6 +299,19 @@ async function pollUpdater(){
   if(S.view==="settings")render();
   if(S.updater.checking)pollUpdater();
  }catch(e){flash("Could not refresh update state: "+e.message)}
+}
+async function downloadDebianUpdate(){
+ const body=node("div",{},
+  node("p",{text:"Download the newer Zero1Local Desktop Debian package from the official GitHub Release, verify SHA-256, and save it to your Downloads folder?"}),
+  node("p",{class:"hint",text:"This will not install anything or request administrative privileges. You choose when to install the verified package using your distribution's package manager."})
+ );
+ dialog("Download desktop update",body,()=>task(async()=>{
+  const result=await request("/api/updates/download-deb",{});
+  await reload();
+  S.downloadedPackage=result.status==="downloaded"?
+    "Verified "+result.version+" package saved: "+result.path:"No newer Debian package is published.";
+  flash(result.message);
+ }),"Download .deb");
 }
 async function openReleases(){
  await task(async()=>{
