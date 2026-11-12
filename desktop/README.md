@@ -1,16 +1,64 @@
-# Native Windows, Linux and macOS desktop host
+# Zero1Local Desktop — native Wails v3.0.0 build
 
-The native application uses **Go 1.26.10** and **Wails v3.0.0** with a Zero1Local-themed native window, a background system tray and a pure-Go localhost API in the parent module.
+Go 1.26.10 or later and native WebView prerequisites are required. This is source code, not a verified signed release.
+The desktop runs in a native window with a system tray. Closing hides the window; the menu restores it or quits.
 
-Build on an actual graphical desktop running Windows, macOS or Linux:
+## Linux: Ubuntu 24.04+ or Debian 13+
 
 ```bash
+sudo apt update
+sudo apt install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev
+git clone https://github.com/gigabytegrove/zero1local-desktop.git
+cd zero1local-desktop
+go test -race ./...
+go vet ./...
 cd desktop
 go mod download
 go build -trimpath -o zero1local-desktop .
 ./zero1local-desktop
 ```
 
-Go 1.26.10 and native WebKit/GTK/WebView2 dependencies are required. There is no GitHub Actions workflow. This source file has been inspected against the Wails v3 official APIs, but native cross-platform builds and runtime tests remain pending.
+Run on an actual Linux graphical session. Wails supports an alternative GTK3 build tag on supported legacy distributions with WebKit2GTK 4.1.
 
-The native window closes to the tray; tray actions restore, hide and quit. It does not install a system daemon, force login autostart, or alter a NAS. The management UI currently opens through the operating-system browser as a deliberate origin-isolation safeguard; in-app remote-origin webview support requires further security tests.
+## Windows: PowerShell
+
+Install Go 1.26.10, Git for Windows and the WebView2 Runtime (usually present).
+
+```powershell
+git clone https://github.com/gigabytegrove/zero1local-desktop.git
+Set-Location zero1local-desktop
+go test ./...
+go vet ./...
+Set-Location desktop
+go mod download
+go build -trimpath -o zero1local-desktop.exe .
+.\zero1local-desktop.exe
+```
+
+## macOS: Terminal
+
+Install Go 1.26.10, Git, and the Xcode Command Line Tools.
+
+```bash
+xcode-select -p
+git clone https://github.com/gigabytegrove/zero1local-desktop.git
+cd zero1local-desktop
+go test ./...
+go vet ./...
+cd desktop
+go mod download
+go build -trimpath -o zero1local-desktop .
+./zero1local-desktop
+```
+
+Raw macOS executables are not notarized .app bundles; installer packaging and signing still need testing.
+
+## Boundaries
+
+The Go companion binds to 127.0.0.1 with a randomized port and enforces origin, host, token, and CSP checks.
+Management opens the original NAS UI through the OS browser until Wails remote-origin bridge isolation is verified.
+OS mappings and credential prompts remain subject to platform support, NAS ACLs and identity mapping.
+Official Zero1Local logos are embedded unchanged and a source-artwork crop is used for the native tray icon.
+No GitHub Actions, background root agents, or NAS modifications.
+
+Platform prerequisites: https://v3.wails.io/quick-start/installation/
