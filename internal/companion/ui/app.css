@@ -373,3 +373,33 @@ dialog::backdrop{background:#071a3880}
  .share-reconnect-option,.remember-consent{padding:12px}
 }
 @media(prefers-reduced-motion:reduce){.topbar-back,.share-reconnect-option,.remember-consent{transition:none}}
+
+
+/* Native updater: one readable status, one primary action, no download maze. */
+.desktop-settings{max-width:900px}
+.desktop-settings>.section{border-top:1px solid var(--line);padding-top:19px}
+.desktop-settings>.section:first-of-type{border-top:0;padding-top:0}
+.desktop-update{display:grid;gap:17px;max-width:850px}
+.update-version-line{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:14px;padding:4px 0 5px}
+.update-caption{font-size:12px;color:var(--muted);font-weight:650}
+.update-version-line strong{font-size:13px}
+.update-version-line .update-version{font-size:21px;letter-spacing:-.015em}
+.update-status{display:flex;align-items:flex-start;gap:13px;padding:17px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.update-status-indicator{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:0 0 10px;margin-top:6px}
+.update-status.available .update-status-indicator{background:var(--blue)}
+.update-status.installed .update-status-indicator,.update-status.current .update-status-indicator{background:var(--good)}
+.update-status.failed .update-status-indicator{background:var(--bad)}
+.update-status-content{min-width:0;flex:1}
+.update-status strong{font-size:15px;letter-spacing:-.01em}
+.update-status p{font-size:13px;color:var(--muted);line-height:1.6;margin:5px 0 0;overflow-wrap:anywhere}
+.update-status.failed p{color:var(--bad)}
+.update-available{border-left:3px solid var(--blue);padding:3px 0 4px 15px}
+.update-available>strong{font-size:23px;letter-spacing:-.02em}
+.update-available p{font-size:12px;color:var(--muted);margin:3px 0 0}
+.update-progress{display:flex;align-items:center;gap:11px;color:var(--ink);font-size:13px;padding:4px 0}
+.update-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.update-actions button{min-height:40px}
+.update-last-check{font-size:12px;color:var(--muted);margin:0}
+.update-explanation{border-top:1px solid var(--line);padding-top:13px;line-height:1.65}
+.settings-about p{margin:6px 0}
+@media(max-width:640px){.update-version-line{gap:11px}.update-actions{align-items:stretch}.update-actions button{flex:1 0 auto}}

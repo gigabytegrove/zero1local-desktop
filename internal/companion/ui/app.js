@@ -361,32 +361,62 @@ function settingsPage(){
  );
  choices.value=S.settings.theme;
  choices.addEventListener("change",()=>task(async()=>{await request("/api/theme",{theme:choices.value});await reload()}));
- return node("div",{},heading("Desktop settings","Preferences for this computer."),
-  section("Appearance",node("div",{class:"detail-main"},
-   node("div",{class:"settings-row"},node("div",{},node("strong",{text:"Color theme"}),
-    node("div",{class:"hint",text:"Matches Zero1Local's original light and dark themes."})),choices)
+ const u=S.updater||{},busy=!!(u.checking||u.installing||S.busy);
+ const statusTitle=u.lastError?"Update interrupted":
+  u.restartReady?"Ready to restart":
+  u.installing?"Installing update":
+  u.checking?"Checking for updates":
+  u.available?"Update available":
+  u.phase==="current"?"You're up to date":"Updates for this computer";
+ const statusClass=u.lastError?"failed":u.restartReady?"installed":u.available?"available":u.phase==="current"?"current":"idle";
+ const updateContent=node("div",{class:"desktop-update"},
+  node("div",{class:"update-version-line"},
+   node("div",{},node("div",{class:"update-caption",text:"Installed version"}),
+    node("strong",{class:"update-version",text:u.version||"Unknown version"})),
+   node("div",{},node("div",{class:"update-caption",text:"Release channel"}),
+    node("strong",{text:(u.channel||"beta")==="beta"?"Beta releases":String(u.channel)}))
+  ),
+  node("div",{class:"update-status "+statusClass,role:"status","aria-live":"polite"},
+   node("span",{class:"update-status-indicator","aria-hidden":"true"}),
+   node("div",{class:"update-status-content"},
+    node("strong",{text:statusTitle}),
+    node("p",{text:u.lastError||u.message||"Check for the latest desktop release."})
+   )
+  ),
+  u.available&&!u.restartReady?node("div",{class:"update-available"},
+   node("div",{class:"update-caption",text:"New version available"}),
+   node("strong",{text:u.latestVersion||"New release"}),
+   node("p",{text:"An official Zero1Local Desktop release is ready to install on this computer."})
+  ):null,
+  (u.checking||u.installing)?node("div",{class:"update-progress",role:"status"},
+   node("span",{class:"loading-dot","aria-hidden":"true"}),
+   node("span",{text:u.message||"Working…"})):null,
+  node("div",{class:"update-actions"},
+   u.restartReady?
+    button("Restart Desktop now",restartDesktopUpdate,"btn btn-primary",busy):
+   u.available?
+    button(u.installMode==="debian"?"Install update":"Install update",installDesktopUpdate,"btn btn-primary",busy):
+    button(u.checking?"Checking…":"Check for updates",checkUpdates,"btn btn-primary",busy||!u.supported),
+   u.available&&!u.checking&&!u.installing?
+    button("Check again",checkUpdates,"btn btn-quiet",busy):null,
+   button("View release history",openReleases,"btn btn-quiet",busy)
+  ),
+  u.lastCheck?node("p",{class:"update-last-check",text:"Last checked: "+new Date(u.lastCheck).toLocaleString()}):null,
+  !u.supported?node("p",{class:"hint",text:u.message||"This installation cannot use the native updater."}):
+   node("p",{class:"hint update-explanation",text:u.installMode==="debian"?
+    "Debian updates are downloaded and verified in the app, then installed through the system package manager after your administrator approval. No manual .deb download is required.":
+    "Updates are verified against SHA-256 checksums. The built-in native updater handles installation; your NAS data is unchanged."})
+ );
+ return node("div",{class:"desktop-settings"},heading("Desktop settings","Preferences and updates for this computer."),
+  section("Software updates",updateContent),
+  section("Appearance",node("div",{class:"settings-row"},
+   node("div",{},node("strong",{text:"Color theme"}),
+    node("div",{class:"hint",text:"Use your operating system theme or choose a fixed appearance."})),choices
   )),
-  section("Software updates",node("div",{class:"detail-main"},
-   node("div",{class:"settings-row"},
-    node("div",{},node("strong",{text:"Zero1Local Desktop " + (S.updater.version||"development preview")}),
-     node("div",{class:"hint",text:"Channel: "+(S.updater.channel||"beta")+" · Source: GitHub Releases"})
-    ),
-    button(S.updater.checking?"Checking for updates…":"Check for updates",checkUpdates,
-     "btn btn-primary",S.busy||S.updater.checking||!S.updater.supported)
-   ),
-   S.updater.reason?node("p",{class:"hint",text:S.updater.reason}):node("p",{class:"hint",text:"Checks for newer beta releases. Only explicitly selected updates are downloaded, verified against SHA256SUMS, and installed with restart confirmation. No automatic NAS changes."}),
-   S.updater.lastError?node("p",{class:"warning",text:S.updater.lastError}):null,
-   S.updater.packageDownload?node("p",{class:"hint",text:"This Linux installation is managed by Debian packages. Download a newer SHA-256-verified .deb and install it with your distribution’s package manager; no unattended root changes."}):null,
-   S.downloadedPackage?node("p",{class:"warning",text:S.downloadedPackage}):null,
-   node("div",{class:"form-actions"},
-    S.updater.packageDownload?button("Download verified .deb",downloadDebianUpdate,
-      "btn btn-primary",S.busy||S.updater.checking):null,
-    button("View releases",openReleases))
-  )),
-  section("About",node("div",{class:"detail-main"},
-   node("h2",{text:"Zero1Local Desktop"}),
-   node("p",{class:"muted",text:"A Gigabyte Grove project. Native Go desktop companion for Windows, Linux, and macOS."}),
-   node("p",{class:"hint",text:"Your NAS management sessions, passwords, API keys and MFA remain under the original Zero1Local and operating system security controls."})
+  section("About",node("div",{class:"settings-about"},
+   node("strong",{text:"Zero1Local Desktop"}),
+   node("p",{text:"A Gigabyte Grove project for managing Zero1Local appliances."}),
+   node("p",{class:"hint",text:"Desktop updates never update your NAS appliances or change their shares, files, or administrator credentials."})
   ))
  );
 }
@@ -465,32 +495,33 @@ async function checkUpdates(){
  await task(async()=>{
   await request("/api/updates/check",{});
   await reload();
-  flash("The native update window is checking GitHub Releases.");
   pollUpdater();
  });
 }
 async function pollUpdater(){
- if(!S.updater.checking)return;
- await new Promise(resolve=>setTimeout(resolve,1500));
+ if(!S.updater.checking&&!S.updater.installing)return;
+ await new Promise(resolve=>setTimeout(resolve,1200));
  try{
   const result=await request("/api/state");
   S.updater=result.updater||S.updater;
   if(S.view==="settings")render();
-  if(S.updater.checking)pollUpdater();
- }catch(e){flash("Could not refresh update state: "+e.message)}
+  if(S.updater.checking||S.updater.installing)pollUpdater();
+ }catch(error){flash("Couldn't refresh updater status: "+error.message)}
 }
-async function downloadDebianUpdate(){
- const body=node("div",{},
-  node("p",{text:"Download the newer Zero1Local Desktop Debian package from the official GitHub Release, verify SHA-256, and save it to your Downloads folder?"}),
-  node("p",{class:"hint",text:"This will not install anything or request administrative privileges. You choose when to install the verified package using your distribution's package manager."})
- );
- dialog("Download desktop update",body,()=>task(async()=>{
-  const result=await request("/api/updates/download-deb",{});
-  await reload();
-  S.downloadedPackage=result.status==="downloaded"?
-    "Verified "+result.version+" package saved: "+result.path:"No newer Debian package is published.";
-  flash(result.message);
- }),"Download .deb");
+async function installDesktopUpdate(){
+ if(!S.updater.available||S.updater.installing)return;
+ const current=S.updater.version||"current version",next=S.updater.latestVersion||"new version";
+ dialog("Install Zero1Local Desktop "+next+"?",node("div",{},
+  node("p",{text:"Update this computer from "+current+" to "+next+"? The app will download and verify the official GitHub release."}),
+  node("p",{class:"hint",text:S.updater.installMode==="debian"?
+   "Your operating system will ask for administrator approval before installing. You will restart Desktop when installation completes. No NAS appliance is modified.":
+   "The native updater will open to complete installation. Your NAS settings and files are preserved."})
+ ),async()=>{
+  await task(async()=>{await request("/api/updates/install",{});await reload();pollUpdater()});
+ },"Install update");
+}
+async function restartDesktopUpdate(){
+ await task(async()=>{await request("/api/updates/restart",{});flash("Restarting Zero1Local Desktop…")});
 }
 async function openReleases(){
  await task(async()=>{
