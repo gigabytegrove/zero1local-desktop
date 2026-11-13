@@ -84,7 +84,7 @@ function render(){
   const active=b.dataset.nav===S.view;b.classList.toggle("active",active);
   if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");
  });
- const titles={home:"Overview",devices:"My appliances",files:"File manager",shares:"Shared folders",mounts:"Mapped drives",storage:"Storage",tasks:"Tasks",users:"Users & groups",services:"Services",backups:"Backups",activity:"Notifications",protection:"Protection",settings:"Desktop settings"};
+ const titles={home:"Overview",devices:"My appliances",files:"File manager",shares:"Shared folders",mounts:"Mapped drives",system:"System",storage:"Storage",network:"Network",docker:"Docker",hardware:"Hardware",tasks:"Tasks",users:"Users & groups",services:"Services",backups:"Backups",activity:"Notifications",protection:"Protection",settings:"Desktop settings"};
  document.querySelector("#top-title").textContent=titles[S.view];
  document.querySelector("#top-subtitle").textContent=selected()?.name||"Zero1Local on this computer";
  document.querySelector("#btn-discover").disabled=S.busy;
@@ -92,7 +92,7 @@ function render(){
  switch(S.view){
  case "devices":main.replaceChildren(devicesPage());break;
  case "files":main.replaceChildren(fileManagerPage());break;
- case "storage":case "tasks":case "users":case "services":case "backups":case "activity":case "protection":main.replaceChildren(managementPage(S.view));break;
+ case "system":case "storage":case "network":case "docker":case "hardware":case "tasks":case "users":case "services":case "backups":case "activity":case "protection":main.replaceChildren(managementPage(S.view));break;
  case "shares":main.replaceChildren(sharesPage());break;
  case "mounts":main.replaceChildren(mountsPage());break;
  case "settings":main.replaceChildren(settingsPage());break;
@@ -193,16 +193,46 @@ function sharesPage(){
 }
 function inventoryPage(){
  const root=node("div",{}),smb=S.inventory["/api/shares"],nfs=S.inventory["/api/nfs/exports"];
- if(smb?.available===false)root.append(node("p",{class:"warning",text:"SMB inventory returned HTTP "+smb.status+". Check API key permissions."}));
- else if(Array.isArray(smb?.active)&&smb.active.length){
-  root.append(table(["SMB share","Folder","Action"],smb.active.map(x=>[
+ // The NAS returns one logical shared folder per backing directory. A
+ // directory exported over both SMB and NFS must not appear as two shares.
+ const folders=Array.isArray(smb?.folders)?smb.folders:[];
+ const legacy=Array.isArray(smb?.active)?smb.active:[];
+ if(folders.length){
+  root.append(table(["Shared folder","Protocols","Backing folder","Connect"],folders.map(folder=>[
+   primary(String(folder.name||"Unnamed"),Array.isArray(folder.aliases)&&folder.aliases.length?"Also known as: "+folder.aliases.join(", "):"Unified shared folder"),
+   node("span",{text:[folder.smb?"SMB":"",folder.nfs?"NFSv3":""].filter(Boolean).join(" + ")}),
+   node("span",{class:"path",text:String(folder.path||"")}),
+   node("div",{class:"actions"},
+    folder.smb?button("Use SMB",()=>selectNASShare("smb",folder.smb_name||folder.name)):null,
+    folder.nfs&&S.platform==="linux"?button("Use NFS",()=>selectNASShare("nfs",folder.nfs_details?.path||folder.path)):null,
+    folder.name_conflict?node("span",{class:"warning",text:"Name conflict"}):null
+   )
+  ])));
+ }else if(legacy.length){
+  root.append(table(["SMB share","Folder","Action"],legacy.map(x=>[
    primary(String(x.name||"Unnamed"),x.browseable?"Browseable":"Restricted"),
    node("span",{class:"path",text:String(x.path||"")}),
-   button("Use",()=>{document.querySelector("#remote").value=String(x.name||"");document.querySelector("#server").focus()})
+   button("Use SMB",()=>selectNASShare("smb",x.name||""))
   ])));
- }else root.append(node("p",{class:"hint",text:"No SMB shares reported."}));
- if(nfs)root.append(node("p",{class:"hint",text:nfs.available===false?"NFS inventory unavailable on this installed NAS.":"NFS inventory was returned. Linux NFSv3 mounting requires an allowed server export and administrator-approved local mount target."}));
+ }else root.append(node("p",{class:"hint",text:"No shared folders were reported by this NAS."}));
+ if(nfs&&Array.isArray(nfs.exports)&&!folders.length){
+  root.append(section("NFSv3 exports",table(["Export","Path","Action"],nfs.exports.map(ex=>[
+   node("strong",{text:ex.share_name||String(ex.id)}),
+   node("span",{class:"path",text:ex.path||""}),
+   S.platform==="linux"?button("Use NFS",()=>selectNASShare("nfs",ex.path||"")):
+    node("span",{class:"hint",text:"Linux client required"})
+  ]))));
+ }
  return root;
+}
+function selectNASShare(protocol,remote){
+ const p=document.querySelector("#protocol"),r=document.querySelector("#remote");
+ if(!p||!r)return;
+ p.value=protocol;
+ p.dispatchEvent(new Event("change",{bubbles:true}));
+ r.value=remote;
+ r.focus();
+ flash("Selected "+protocol.toUpperCase()+" share: "+remote);
 }
 function mountsPage(){
  const root=node("div",{},heading("Mapped drives","Recorded mount requests from this desktop companion."));
@@ -383,6 +413,10 @@ async function loadInventory(){
 // All NAS management data comes from a scoped, authenticated local API.
 // Remote HTML and JavaScript are never loaded into this privileged webview.
 const managedViews={
+ system:{title:"System overview",description:"Device identity, uptime, memory, operating system and readiness.",resource:"system"},
+ network:{title:"Network",description:"Current addresses, interfaces, VLANs and routing information.",resource:"network"},
+ docker:{title:"Containers & Docker",description:"Containers, image inventory and Docker runtime status.",resource:"docker"},
+ hardware:{title:"Hardware",description:"Device hardware, fan, temperatures and system monitoring.",resource:"hardware"},
  storage:{title:"Storage & disks",description:"RAID health, mounted volumes, capacity and SMART information.",resource:"storage"},
  tasks:{title:"Tasks & jobs",description:"Background jobs and ongoing work reported by your NAS.",resource:"tasks"},
  users:{title:"Users & groups",description:"Administrator-visible NAS accounts and group memberships.",resource:"users"},
@@ -393,7 +427,7 @@ const managedViews={
 };
 function sessionFor(d=selected()){return d?S.sessions[d.id]:null}
 function switchView(view){
- if(!["home","devices","files","shares","mounts","storage","tasks","users","services","backups","activity","protection","settings"].includes(view))return;
+ if(!["home","devices","files","shares","mounts","system","storage","network","docker","hardware","tasks","users","services","backups","activity","protection","settings"].includes(view))return;
  S.view=view;render();main.focus({preventScroll:true});
  if(view==="files"||managedViews[view])refreshLive(false);
 }
@@ -469,6 +503,7 @@ function dataValue(value){
 function humanize(key){return String(key).replace(/[_-]/g," ").replace(/\b\w/g,c=>c.toUpperCase())}
 function rowsFromData(data,resource){
  const names={
+  docker:["containers","images","stacks"],network:["interfaces","vlans"],hardware:["devices","disks","fans"],
   users:["users"],tasks:["tasks","jobs","active"],services:["services","units"],
   backups:["backups","jobs","schedules"],notifications:["notifications","items"],
   protection:["plans"],storage:["raid","block_devices","smart"]

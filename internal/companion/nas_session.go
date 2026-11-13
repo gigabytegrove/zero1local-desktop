@@ -48,6 +48,9 @@ type nasReadRequest struct {
 
 var nasReadPaths = map[string]string{
 	"system":        "/api/system",
+	"network":       "/api/network",
+	"docker":        "/api/docker",
+	"hardware":      "/api/hardware",
 	"storage":       "/api/storage",
 	"storageHealth": "/api/storage/health",
 	"users":         "/api/users",

@@ -38,7 +38,7 @@ test("credentialed onboarding, desktop management, and file features are present
   assert.ok(source.includes('"/api/nas/file-action"'),"file actions must use scoped NAS APIs");
   assert.ok(source.includes('"/api/nas/download"'),"file downloads must not expose NAS cookies");
   assert.ok(source.includes('"/api/nas/upload?id="'),"NAS uploads must use the local authenticated bridge");
-  for(const view of ["files","storage","tasks","users","services","backups","protection","activity"]){
+  for(const view of ["files","system","storage","network","docker","hardware","tasks","users","services","backups","protection","activity"]){
     assert.ok(html.includes('data-nav="'+view+'"'),"missing desktop navigation: "+view);
   }
 });
