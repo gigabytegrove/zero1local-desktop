@@ -235,16 +235,19 @@ function sharesPage(){
   t.placeholder=nfs?"/home/you/nfs-share":S.platform==="windows"?"Z:":"Managed by OS";
  }
  p.addEventListener("change",updateMountTarget);updateMountTarget();
- root.append(section("Connect to "+d.name,node("div",{class:"detail-main"},form)));
+ // Verified export discovery is presented before advanced manual mapping.
  const inventory=node("div",{class:"detail-main"},
-  node("h2",{text:"Verified shared folders"}),
-  node("p",{class:"hint",text:"Read actual SMB shares and NFS exports using your authenticated NAS session. No separate API key is needed."}),
+  node("h2",{text:"Verified folders on "+d.name}),
+  node("p",{class:"hint",text:"Choose a verified SMB share or NFS export below to prefill a connection. The NAS enforces share access."}),
   S.sessions[d.id]?
    button("Refresh NAS share inventory",loadInventory,"btn btn-primary",S.busy):
    button("Sign in to view NAS shares",()=>credentialDialog(d.id),"btn btn-primary",S.busy)
  );
- root.append(section("Read share inventory",inventory));
- if(S.inventory)root.append(section("Share results",inventoryPage()));
+ root.append(section("Available shared folders",inventory));
+ if(S.inventory)root.append(inventoryPage());
+ root.append(node("details",{class:"mapping-details"},
+  node("summary",{text:"Connect an SMB share or NFS export"}),
+  node("div",{class:"mapping-details-body"},form)));
  return root;
 }
 function inventoryPage(){
@@ -486,6 +489,7 @@ function switchView(view){
  if(!["home","devices","files","shares","mounts","system","storage","network","docker","hardware","tasks","users","services","backups","activity","protection","settings"].includes(view))return;
  S.view=view;render();main.focus({preventScroll:true});
  if(view==="files"||managedViews[view])refreshLive(false);
+ if(view==="shares"&&sessionFor(selected())&&!S.inventory)loadInventory();
 }
 function sessionState(d){
  const session=sessionFor(d);
@@ -677,7 +681,8 @@ function fileManagerPage(){
  if(!sessionFor(d)){root.append(liveEmpty(d));return root}
  if(S.fileLocation.id!==d.id)S.fileLocation={id:d.id,share:"",rel:""};
  const key=liveKey(d,"files"),data=S.live[key],location=S.fileLocation;
- root.append(liveToolbar(d,key),liveErrorNode(key));
+ root.append(liveToolbar(d,key));
+ const fileError=liveErrorNode(key);if(fileError)root.append(fileError);
  if(location.share){
   const crumbs=[button("All shares",()=>openFileLocation(d.id,"",""),"btn btn-quiet"),
    node("span",{text:" / "+location.share})];
@@ -688,15 +693,18 @@ function fileManagerPage(){
   root.append(node("div",{class:"file-crumbs"},...crumbs));
  }
  if(S.liveLoading===key&&!data)root.append(node("p",{class:"loading",role:"status",text:"Reading NAS shared folders…"}));
- if(!data&&!S.liveErrors[key])root.append(button("Browse shared folders",()=>refreshLive(),"btn btn-primary"));
+ if(!data&&!S.liveErrors[key]&&S.liveLoading!==key)root.append(node("div",{class:"start-state"},node("strong",{text:"Browse your NAS shared folders"}),node("p",{text:"Only folders this NAS allows you to access will appear."}),button("Load shared folders",()=>refreshLive(),"btn btn-primary")));
  if(data?.scope==="shares"){
   const shares=Array.isArray(data.shares)?data.shares:[];
-  root.append(section("Available shared folders",shares.length?
-   table(["Shared folder","Availability","Action"],shares.map(sh=>[
-    node("strong",{text:sh.name||"Shared folder"}),
-    node("span",{text:sh.network_available===false?"Local-only":"Accessible"}),
-    button("Open",()=>openFileLocation(d.id,sh.name,""),"btn btn-primary")
-   ])):empty("▣","No user shares found","Only folders exposed by Zero1Local's share inventory are shown.")));
+  root.append(section("Shared folders",shares.length?
+   node("div",{class:"share-location-list"},...shares.map(sh=>
+    node("button",{type:"button",class:"share-location",onClick:()=>openFileLocation(d.id,sh.name,"")},
+     node("span",{class:"share-location-icon",text:"▦","aria-hidden":"true"}),
+     node("span",{class:"share-location-copy"},node("strong",{text:sh.name||"Shared folder"}),
+      node("small",{text:sh.network_available===false?"Local-only NAS folder":"Zero1Local shared folder"})),
+     node("span",{class:"share-location-arrow",text:"Open ›","aria-hidden":"true"})
+    )
+   )):empty("▣","No user shares found","Only folders exposed by Zero1Local's share inventory are shown.")));
  }else if(data?.scope==="share"){
   const entries=Array.isArray(data.entries)?data.entries:[];
   root.append(node("div",{class:"file-actions"},
@@ -718,7 +726,7 @@ function fileManagerPage(){
    ])):empty("▣","This folder is empty","No files or directories were returned.")));
   if(location.rel)root.append(button("Back to parent",()=>openFileLocation(d.id,location.share,data.parent_relative_path||""),"btn btn-quiet"));
  }
- root.append(node("p",{class:"hint",text:"Only NAS-approved share folders are displayed. Upload, create folder, rename, recycle and downloads are authorized by your NAS session. Bulk copy/move, previews, sharing links and permanent deletion remain in the full NAS console."}),
+ root.append(node("p",{class:"hint file-manager-footnote",text:"Zero1Local enforces file permissions. Bulk moves, sharing links, previews and permanent deletion remain in the full NAS console."}),
   button("Open NAS file manager",()=>openDevice(d.id),"btn btn-quiet"));
  return root;
 }
