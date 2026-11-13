@@ -208,106 +208,183 @@ func findLatestDeb(releases []publicRelease, currentVersion string) (publicRelea
 	return chosen, deb, checksum, found
 }
 
-
 // findUpdateRelease is independent of the installer. Package-managed installs
 // therefore get the exact same working Check for updates control as portable
 // Windows and Linux applications.
-func findUpdateRelease(ctx context.Context,installed,mode string)(releaseSelection,bool,error){
- client:=publicReleaseClient()
- request,err:=http.NewRequestWithContext(ctx,http.MethodGet,releaseAPI,nil)
- if err!=nil{return releaseSelection{},false,err}
- request.Header.Set("Accept","application/vnd.github+json")
- request.Header.Set("User-Agent","Zero1Local-Desktop-Updater")
- response,err:=client.Do(request)
- if err!=nil{return releaseSelection{},false,err}
- defer response.Body.Close()
- if response.StatusCode!=200{return releaseSelection{},false,fmt.Errorf("GitHub Releases returned HTTP %d",response.StatusCode)}
- raw,err:=io.ReadAll(io.LimitReader(response.Body,(2<<20)+1))
- if err!=nil{return releaseSelection{},false,err}
- if len(raw)>2<<20{return releaseSelection{},false,errors.New("release list exceeds safety limit")}
- var releases []publicRelease
- if err:=json.Unmarshal(raw,&releases);err!=nil{return releaseSelection{},false,fmt.Errorf("invalid GitHub release list: %w",err)}
- return chooseUpdateRelease(releases,installed,mode)
+func findUpdateRelease(ctx context.Context, installed, mode string) (releaseSelection, bool, error) {
+	client := publicReleaseClient()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, releaseAPI, nil)
+	if err != nil {
+		return releaseSelection{}, false, err
+	}
+	request.Header.Set("Accept", "application/vnd.github+json")
+	request.Header.Set("User-Agent", "Zero1Local-Desktop-Updater")
+	response, err := client.Do(request)
+	if err != nil {
+		return releaseSelection{}, false, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 200 {
+		return releaseSelection{}, false, fmt.Errorf("GitHub Releases returned HTTP %d", response.StatusCode)
+	}
+	raw, err := io.ReadAll(io.LimitReader(response.Body, (2<<20)+1))
+	if err != nil {
+		return releaseSelection{}, false, err
+	}
+	if len(raw) > 2<<20 {
+		return releaseSelection{}, false, errors.New("release list exceeds safety limit")
+	}
+	var releases []publicRelease
+	if err := json.Unmarshal(raw, &releases); err != nil {
+		return releaseSelection{}, false, fmt.Errorf("invalid GitHub release list: %w", err)
+	}
+	return chooseUpdateRelease(releases, installed, mode)
 }
-func chooseUpdateRelease(releases []publicRelease,installed,mode string)(releaseSelection,bool,error){
- if _,err:=releaseVersionParts(installed);err!=nil{return releaseSelection{},false,err}
- var match releaseSelection
- found:=false
- for _,release:=range releases{
-  if release.Draft || !versionTagPattern.MatchString(release.TagName){continue}
-  // Match the beta channel but never unexpectedly move to alpha.
-  if strings.Contains(release.TagName,"-alpha.") {continue}
-  cmp,err:=releaseVersionCompare(release.TagName,installed)
-  if err!=nil||cmp<=0{continue}
-  if found{
-   newer,err:=releaseVersionCompare(release.TagName,match.release.TagName)
-   if err!=nil||newer<=0{continue}
-  }
-  want:=""
-  if mode=="debian"{
-   // The Debian package embeds the exact source revision in its asset name.
-   // We accept only the single matching .deb in a release.
-  }else if strings.HasPrefix(mode,"portable-"){
-   want="Zero1Local-Desktop-Updater-"+strings.TrimPrefix(mode,"portable-")
-   if strings.HasPrefix(mode,"portable-windows-")||strings.HasPrefix(mode,"portable-darwin-"){want+=".zip"}else{want+=".tar.gz"}
-  }else{continue}
-  var asset,checksums releaseAsset
-  matches:=0
-  for _,a:=range release.Assets{
-   if a.Name=="SHA256SUMS"{checksums=a}
-   if (mode=="debian"&&debianAssetPattern.MatchString(a.Name)) || (want!=""&&a.Name==want){asset=a;matches++}
-  }
-  if matches!=1||asset.Size<=0||asset.Size>debianAssetLimit||checksums.Name==""{continue}
-  if allowedReleaseURL(asset.URL)!=nil||allowedReleaseURL(checksums.URL)!=nil{continue}
-  match=releaseSelection{release:release,asset:asset,checksums:checksums}
-  found=true
- }
- return match,found,nil
+func chooseUpdateRelease(releases []publicRelease, installed, mode string) (releaseSelection, bool, error) {
+	if _, err := releaseVersionParts(installed); err != nil {
+		return releaseSelection{}, false, err
+	}
+	var match releaseSelection
+	found := false
+	for _, release := range releases {
+		if release.Draft || !versionTagPattern.MatchString(release.TagName) {
+			continue
+		}
+		// Match the beta channel but never unexpectedly move to alpha.
+		if strings.Contains(release.TagName, "-alpha.") {
+			continue
+		}
+		cmp, err := releaseVersionCompare(release.TagName, installed)
+		if err != nil || cmp <= 0 {
+			continue
+		}
+		if found {
+			newer, err := releaseVersionCompare(release.TagName, match.release.TagName)
+			if err != nil || newer <= 0 {
+				continue
+			}
+		}
+		want := ""
+		if mode == "debian" {
+			// The Debian package embeds the exact source revision in its asset name.
+			// We accept only the single matching .deb in a release.
+		} else if strings.HasPrefix(mode, "portable-") {
+			want = "Zero1Local-Desktop-Updater-" + strings.TrimPrefix(mode, "portable-")
+			if strings.HasPrefix(mode, "portable-windows-") || strings.HasPrefix(mode, "portable-darwin-") {
+				want += ".zip"
+			} else {
+				want += ".tar.gz"
+			}
+		} else {
+			continue
+		}
+		var asset, checksums releaseAsset
+		matches := 0
+		for _, a := range release.Assets {
+			if a.Name == "SHA256SUMS" {
+				checksums = a
+			}
+			if (mode == "debian" && debianAssetPattern.MatchString(a.Name)) || (want != "" && a.Name == want) {
+				asset = a
+				matches++
+			}
+		}
+		if matches != 1 || asset.Size <= 0 || asset.Size > debianAssetLimit || checksums.Name == "" {
+			continue
+		}
+		if allowedReleaseURL(asset.URL) != nil || allowedReleaseURL(checksums.URL) != nil {
+			continue
+		}
+		match = releaseSelection{release: release, asset: asset, checksums: checksums}
+		found = true
+	}
+	return match, found, nil
 }
 
 // downloadVerifiedDebian streams the pinned GitHub release package into a
 // mode-0700 private working directory. It never uses ~/Downloads and never
 // installs unless the release checksum and size both match.
-func downloadVerifiedDebian(ctx context.Context,selected releaseSelection,progress func(string,string))(string,func(),error){
- return downloadVerifiedDebianWithClient(ctx,selected,publicReleaseClient(),progress)
+func downloadVerifiedDebian(ctx context.Context, selected releaseSelection, progress func(string, string)) (string, func(), error) {
+	return downloadVerifiedDebianWithClient(ctx, selected, publicReleaseClient(), progress)
 }
-func downloadVerifiedDebianWithClient(ctx context.Context,selected releaseSelection,client *http.Client,progress func(string,string))(string,func(),error){
- cleanup:=func(){}
- if !debianAssetPattern.MatchString(selected.asset.Name){return "",cleanup,errors.New("release does not contain a valid Linux amd64 Debian package")}
- if selected.asset.Size<=0||selected.asset.Size>debianAssetLimit{return "",cleanup,errors.New("Debian asset is too large or missing its size")}
- if allowedReleaseURL(selected.asset.URL)!=nil||allowedReleaseURL(selected.checksums.URL)!=nil{return "",cleanup,errors.New("release asset URL is untrusted")}
- if progress!=nil{progress("verifying","Verifying the official release checksum…")}
- checksums,err:=downloadReleaseBody(ctx,client,selected.checksums.URL,128<<10)
- if err!=nil{return "",cleanup,fmt.Errorf("download release SHA-256 checksums: %w",err)}
- expected,err:=digestForAsset(string(checksums),selected.asset.Name)
- if err!=nil{return "",cleanup,err}
- dir,err:=os.MkdirTemp("","zero1local-desktop-update-*")
- if err!=nil{return "",cleanup,err}
- cleanup=func(){_ = os.RemoveAll(dir)}
- if err:=os.Chmod(dir,0700);err!=nil{cleanup();return "",func(){},err}
- name:=filepath.Join(dir,selected.asset.Name)
- output,err:=os.OpenFile(name,os.O_CREATE|os.O_EXCL|os.O_WRONLY,0600)
- if err!=nil{cleanup();return "",func(){},err}
- if progress!=nil{progress("downloading","Downloading the signed-off, checksum-protected Debian release…")}
- request,err:=http.NewRequestWithContext(ctx,http.MethodGet,selected.asset.URL,nil)
- if err!=nil{output.Close();cleanup();return "",func(){},err}
- request.Header.Set("User-Agent","Zero1Local-Desktop-Updater")
- response,err:=client.Do(request)
- if err!=nil{output.Close();cleanup();return "",func(){},err}
- if response.StatusCode!=http.StatusOK{
-  response.Body.Close();output.Close();cleanup()
-  return "",func(){},fmt.Errorf("GitHub Debian package returned HTTP %d",response.StatusCode)
- }
- sum:=sha256.New()
- written,copyErr:=io.Copy(io.MultiWriter(output,sum),io.LimitReader(response.Body,debianAssetLimit+1))
- closeResponseErr:=response.Body.Close()
- syncErr:=output.Sync()
- closeErr:=output.Close()
- if copyErr!=nil||closeResponseErr!=nil||syncErr!=nil||closeErr!=nil{
-  cleanup();return "",func(){},errors.Join(copyErr,closeResponseErr,syncErr,closeErr)
- }
- if written!=selected.asset.Size||written>debianAssetLimit{cleanup();return "",func(){},errors.New("downloaded Debian package size differs from GitHub's release metadata")}
- if !bytes.Equal(sum.Sum(nil),expected){cleanup();return "",func(){},errors.New("Debian package SHA-256 verification failed; nothing was installed")}
- if progress!=nil{progress("verified","Verified package checksum and size. Preparing the system installer…")}
- return name,cleanup,nil
+func downloadVerifiedDebianWithClient(ctx context.Context, selected releaseSelection, client *http.Client, progress func(string, string)) (string, func(), error) {
+	cleanup := func() {}
+	if !debianAssetPattern.MatchString(selected.asset.Name) {
+		return "", cleanup, errors.New("release does not contain a valid Linux amd64 Debian package")
+	}
+	if selected.asset.Size <= 0 || selected.asset.Size > debianAssetLimit {
+		return "", cleanup, errors.New("Debian asset is too large or missing its size")
+	}
+	if allowedReleaseURL(selected.asset.URL) != nil || allowedReleaseURL(selected.checksums.URL) != nil {
+		return "", cleanup, errors.New("release asset URL is untrusted")
+	}
+	if progress != nil {
+		progress("verifying", "Verifying the official release checksum…")
+	}
+	checksums, err := downloadReleaseBody(ctx, client, selected.checksums.URL, 128<<10)
+	if err != nil {
+		return "", cleanup, fmt.Errorf("download release SHA-256 checksums: %w", err)
+	}
+	expected, err := digestForAsset(string(checksums), selected.asset.Name)
+	if err != nil {
+		return "", cleanup, err
+	}
+	dir, err := os.MkdirTemp("", "zero1local-desktop-update-*")
+	if err != nil {
+		return "", cleanup, err
+	}
+	cleanup = func() { _ = os.RemoveAll(dir) }
+	if err := os.Chmod(dir, 0700); err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+	name := filepath.Join(dir, selected.asset.Name)
+	output, err := os.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+	if progress != nil {
+		progress("downloading", "Downloading the signed-off, checksum-protected Debian release…")
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, selected.asset.URL, nil)
+	if err != nil {
+		output.Close()
+		cleanup()
+		return "", func() {}, err
+	}
+	request.Header.Set("User-Agent", "Zero1Local-Desktop-Updater")
+	response, err := client.Do(request)
+	if err != nil {
+		output.Close()
+		cleanup()
+		return "", func() {}, err
+	}
+	if response.StatusCode != http.StatusOK {
+		response.Body.Close()
+		output.Close()
+		cleanup()
+		return "", func() {}, fmt.Errorf("GitHub Debian package returned HTTP %d", response.StatusCode)
+	}
+	sum := sha256.New()
+	written, copyErr := io.Copy(io.MultiWriter(output, sum), io.LimitReader(response.Body, debianAssetLimit+1))
+	closeResponseErr := response.Body.Close()
+	syncErr := output.Sync()
+	closeErr := output.Close()
+	if copyErr != nil || closeResponseErr != nil || syncErr != nil || closeErr != nil {
+		cleanup()
+		return "", func() {}, errors.Join(copyErr, closeResponseErr, syncErr, closeErr)
+	}
+	if written != selected.asset.Size || written > debianAssetLimit {
+		cleanup()
+		return "", func() {}, errors.New("downloaded Debian package size differs from GitHub's release metadata")
+	}
+	if !bytes.Equal(sum.Sum(nil), expected) {
+		cleanup()
+		return "", func() {}, errors.New("Debian package SHA-256 verification failed; nothing was installed")
+	}
+	if progress != nil {
+		progress("verified", "Verified package checksum and size. Preparing the system installer…")
+	}
+	return name, cleanup, nil
 }

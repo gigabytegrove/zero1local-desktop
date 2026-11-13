@@ -1,121 +1,167 @@
 package main
 
 import (
- "context"
- "errors"
- "fmt"
- "os"
- "os/exec"
- "path/filepath"
- "regexp"
- "runtime"
- "strings"
- "time"
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"runtime"
+	"strings"
+	"time"
 
- "github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // Only the real installed Debian binary can use system package replacement.
 func nativeDebianInstall() bool {
- if runtime.GOOS!="linux" || runtime.GOARCH!="amd64" {return false}
- executable,err:=os.Executable()
- if err!=nil{return false}
- resolved,err:=filepath.EvalSymlinks(executable)
- if err!=nil{return false}
- if resolved!="/usr/bin/zero1local-desktop"{return false}
- out,err:=exec.Command("/usr/bin/dpkg-query","-W","-f=${Status}","zero1local-desktop").Output()
- return err==nil && strings.TrimSpace(string(out))=="install ok installed"
+	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
+		return false
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	resolved, err := filepath.EvalSymlinks(executable)
+	if err != nil {
+		return false
+	}
+	if resolved != "/usr/bin/zero1local-desktop" {
+		return false
+	}
+	out, err := exec.Command("/usr/bin/dpkg-query", "-W", "-f=${Status}", "zero1local-desktop").Output()
+	return err == nil && strings.TrimSpace(string(out)) == "install ok installed"
 }
-var sourceInDebAsset=regexp.MustCompile(`^Zero1Local-Desktop-([0-9a-f]{12})-linux-amd64\.deb$`)
-var validReleaseVersion=regexp.MustCompile(`^(\d+\.\d+\.\d+)(?:-(alpha|beta|rc)\.(\d+))?$`)
 
-func expectedDebianPackageVersion(releaseVersion,assetName string)(string,error){
- if assetName!=filepath.Base(assetName){return "",errors.New("Debian asset name must not include a path")}
- match:=sourceInDebAsset.FindStringSubmatch(assetName)
- if match==nil{return "",errors.New("unexpected Debian asset filename")}
- version:=validReleaseVersion.FindStringSubmatch(releaseVersion)
- if version==nil{return "",errors.New("invalid Debian release version")}
- expected:=version[1]
- if version[2]!=""{expected+="~"+version[2]+version[3]}
- return expected+"+git"+match[1],nil
+var sourceInDebAsset = regexp.MustCompile(`^Zero1Local-Desktop-([0-9a-f]{12})-linux-amd64\.deb$`)
+var validReleaseVersion = regexp.MustCompile(`^(\d+\.\d+\.\d+)(?:-(alpha|beta|rc)\.(\d+))?$`)
+
+func expectedDebianPackageVersion(releaseVersion, assetName string) (string, error) {
+	if assetName != filepath.Base(assetName) {
+		return "", errors.New("Debian asset name must not include a path")
+	}
+	match := sourceInDebAsset.FindStringSubmatch(assetName)
+	if match == nil {
+		return "", errors.New("unexpected Debian asset filename")
+	}
+	version := validReleaseVersion.FindStringSubmatch(releaseVersion)
+	if version == nil {
+		return "", errors.New("invalid Debian release version")
+	}
+	expected := version[1]
+	if version[2] != "" {
+		expected += "~" + version[2] + version[3]
+	}
+	return expected + "+git" + match[1], nil
 }
 
 // dpkg-deb -f with field names emits "Package: x" lines, not bare values.
-func parseDebianMetadata(raw string)map[string]string{
- result:=make(map[string]string)
- for _,line:=range strings.Split(raw,"\n"){
-  name,value,ok:=strings.Cut(line,":")
-  if !ok{continue}
-  name=strings.TrimSpace(name)
-  if name=="Package"||name=="Architecture"||name=="Version"{
-   if _,exists:=result[name];exists{return map[string]string{}}
-   result[name]=strings.TrimSpace(value)
-  }
- }
- return result
+func parseDebianMetadata(raw string) map[string]string {
+	result := make(map[string]string)
+	for _, line := range strings.Split(raw, "\n") {
+		name, value, ok := strings.Cut(line, ":")
+		if !ok {
+			continue
+		}
+		name = strings.TrimSpace(name)
+		if name == "Package" || name == "Architecture" || name == "Version" {
+			if _, exists := result[name]; exists {
+				return map[string]string{}
+			}
+			result[name] = strings.TrimSpace(value)
+		}
+	}
+	return result
 }
-func validateDebianUpgrade(ctx context.Context,filename,releaseVersion string)error{
- if !filepath.IsAbs(filename){return errors.New("updater package path must be absolute")}
- info,err:=os.Lstat(filename)
- if err!=nil{return err}
- if !info.Mode().IsRegular()||info.Size()<=0{return errors.New("update is not a regular Debian package")}
- expected,err:=expectedDebianPackageVersion(releaseVersion,filepath.Base(filename))
- if err!=nil{return err}
- cmd:=exec.CommandContext(ctx,"/usr/bin/dpkg-deb","--field",filename,"Package","Architecture","Version")
- result,err:=cmd.Output()
- if err!=nil{return fmt.Errorf("cannot inspect downloaded Debian package: %w",err)}
- fields:=parseDebianMetadata(string(result))
- if fields["Package"]!="zero1local-desktop"||fields["Architecture"]!="amd64"||fields["Version"]!=expected{
-  return fmt.Errorf("verified release package metadata does not match the requested version %s",releaseVersion)
- }
- return nil
+func validateDebianUpgrade(ctx context.Context, filename, releaseVersion string) error {
+	if !filepath.IsAbs(filename) {
+		return errors.New("updater package path must be absolute")
+	}
+	info, err := os.Lstat(filename)
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() || info.Size() <= 0 {
+		return errors.New("update is not a regular Debian package")
+	}
+	expected, err := expectedDebianPackageVersion(releaseVersion, filepath.Base(filename))
+	if err != nil {
+		return err
+	}
+	cmd := exec.CommandContext(ctx, "/usr/bin/dpkg-deb", "--field", filename, "Package", "Architecture", "Version")
+	result, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("cannot inspect downloaded Debian package: %w", err)
+	}
+	fields := parseDebianMetadata(string(result))
+	if fields["Package"] != "zero1local-desktop" || fields["Architecture"] != "amd64" || fields["Version"] != expected {
+		return fmt.Errorf("verified release package metadata does not match the requested version %s", releaseVersion)
+	}
+	return nil
 }
 
 // Caller already verified the exact release SHA-256 manifest and its size.
 // PolicyKit opens the familiar GUI authentication prompt; APT retains dpkg's
 // package database, dependencies and rollback/recovery semantics.
 // No sudo password is ever handled by this application.
-func installNativeDebianPackage(ctx context.Context,filename,releaseVersion string)error{
- if !nativeDebianInstall(){return errors.New("this Zero1Local Desktop installation is not managed by Debian")}
- if err:=validateDebianUpgrade(ctx,filename,releaseVersion);err!=nil{return err}
- if _,err:=os.Stat("/usr/bin/pkexec");err!=nil{
-  return errors.New("graphical administrator authorization (pkexec) is not installed; enable PolicyKit to use in-app Debian updates")
- }
- command:=exec.CommandContext(ctx,"/usr/bin/pkexec","/usr/bin/apt-get","install",
-  "-y","--no-remove","--no-install-recommends",filename)
- output,err:=command.CombinedOutput()
- if err!=nil{
-  detail:=strings.TrimSpace(string(output))
-  if len(detail)>550{detail=detail[len(detail)-550:]}
-  return fmt.Errorf("administrator authorization or package installation failed: %v: %s",err,detail)
- }
- // Verify apt/dpkg agree that the exact requested release is installed.
- installed,err:=exec.CommandContext(ctx,"/usr/bin/dpkg-query","-W",
-  "-f=${Version}","zero1local-desktop").Output()
- if err!=nil||strings.TrimSpace(string(installed))!=mustExpectedVersion(releaseVersion,filepath.Base(filename)){
-  return errors.New("package manager finished but the requested version was not confirmed as installed")
- }
- return nil
+func installNativeDebianPackage(ctx context.Context, filename, releaseVersion string) error {
+	if !nativeDebianInstall() {
+		return errors.New("this Zero1Local Desktop installation is not managed by Debian")
+	}
+	if err := validateDebianUpgrade(ctx, filename, releaseVersion); err != nil {
+		return err
+	}
+	if _, err := os.Stat("/usr/bin/pkexec"); err != nil {
+		return errors.New("graphical administrator authorization (pkexec) is not installed; enable PolicyKit to use in-app Debian updates")
+	}
+	command := exec.CommandContext(ctx, "/usr/bin/pkexec", "/usr/bin/apt-get", "install",
+		"-y", "--no-remove", "--no-install-recommends", filename)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		detail := strings.TrimSpace(string(output))
+		if len(detail) > 550 {
+			detail = detail[len(detail)-550:]
+		}
+		return fmt.Errorf("administrator authorization or package installation failed: %v: %s", err, detail)
+	}
+	// Verify apt/dpkg agree that the exact requested release is installed.
+	installed, err := exec.CommandContext(ctx, "/usr/bin/dpkg-query", "-W",
+		"-f=${Version}", "zero1local-desktop").Output()
+	if err != nil || strings.TrimSpace(string(installed)) != mustExpectedVersion(releaseVersion, filepath.Base(filename)) {
+		return errors.New("package manager finished but the requested version was not confirmed as installed")
+	}
+	return nil
 }
-func mustExpectedVersion(version,asset string)string{
- value,err:=expectedDebianPackageVersion(version,asset)
- if err!=nil{return ""}
- return value
+func mustExpectedVersion(version, asset string) string {
+	value, err := expectedDebianPackageVersion(version, asset)
+	if err != nil {
+		return ""
+	}
+	return value
 }
+
 // Schedule restart after the local HTTP response is sent and after the old
 // single-instance lock has been released; never launch a second copy first.
-func scheduleDesktopRestart(app *application.App)error{
- executable,err:=os.Executable()
- if err!=nil{return err}
- if executable!="/usr/bin/zero1local-desktop"{
-  return errors.New("automatic restart requires the installed Debian desktop executable")
- }
- command:=exec.Command("/bin/sh","-c",`sleep 2; exec "$1"`,"zero1local-restart",executable)
- command.Stdin=nil
- command.Stdout=nil
- command.Stderr=nil
- if err:=command.Start();err!=nil{return fmt.Errorf("schedule desktop restart: %w",err)}
- if err:=command.Process.Release();err!=nil{return err}
- go func(){time.Sleep(250*time.Millisecond);app.Quit()}()
- return nil
+func scheduleDesktopRestart(app *application.App) error {
+	executable, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	if executable != "/usr/bin/zero1local-desktop" {
+		return errors.New("automatic restart requires the installed Debian desktop executable")
+	}
+	command := exec.Command("/bin/sh", "-c", `sleep 2; exec "$1"`, "zero1local-restart", executable)
+	command.Stdin = nil
+	command.Stdout = nil
+	command.Stderr = nil
+	if err := command.Start(); err != nil {
+		return fmt.Errorf("schedule desktop restart: %w", err)
+	}
+	if err := command.Process.Release(); err != nil {
+		return err
+	}
+	go func() { time.Sleep(250 * time.Millisecond); app.Quit() }()
+	return nil
 }
