@@ -34,6 +34,19 @@ The November 12, 2026 user screencast was decoded and visually reviewed in full:
 
 **Status:** Beta 5 has new source and regression tests; the native Windows/Linux release must still pass the build/test/package/release gate. End-to-end device UI acceptance is not implied by JavaScript parsing or Linux cross-compilation.
 
+
+## Beta 6 — NAS-scoped workspaces and remembered sign-in
+
+**My appliances is the landing screen.** Click an individual NAS to open its own Overview, File Manager, Shared Folders, Mapped Drives, and management sections. The NAS selector and full management navigation only appear inside a selected appliance workspace. Switching NAS devices clears the currently shown share selection. Mapped Drives lists only mappings belonging to the selected NAS.
+
+**Sign-in is a choice on each NAS, not a global password setting.** By default passwords remain memory-only and signing in lasts only for the current application session. Select **Keep me signed in to this NAS** to explicitly store that NAS's credentials and current (up to eight-hour) session cookie in the native operating-system vault. On startup the desktop first tries to resume the original NAS session using \`/api/session\` and then attempts password reauthentication if the cookie was revoked or expired. TOTP codes are never stored. If the NAS demands two-factor verification again, the user is asked to sign in; the desktop will never silently bypass MFA. Signing out erases the remembered vault entry; **Stop remembering** removes the credential while leaving the active session connected. Passwords and cookies do not enter \`settings.json\`, frontend state, logs, or GitHub.
+
+**Each Windows SMB share has its own independent Reconnect option.** Windows handles persistent SMB mappings and any Windows credentials; these are unrelated to the NAS administrator account. Linux and macOS share auto-reconnect are not advertised as implemented: the respective desktop/system file manager controls their credentials and reconnection.
+
+Native OS vaults: Windows Credential Manager, macOS Keychain, Linux Secret Service. If a vault is unavailable/locked, opt-in persistent sign-in fails clearly rather than silently saving plaintext. Linux Secret Service requires an available unlocked keyring. The original NAS server and its eight-hour session policy are unchanged.
+
+**Verification gate:** Node frontend regression suites, Go race and integration tests, Wails GTK tests/vet, cross-platform compilation, architecture checks, checksum verification and exact GitHub release assets. End-to-end native desktop tests and real NAS session/mount acceptance remain required before declaring stable.
+
 ## Connecting an appliance
 
 1. Open **Add appliance**, enter its IP address or management hostname, then enter the NAS administrator username, password and optional six-digit TOTP code. Discovery candidates use the same sign-in process.

@@ -1,4 +1,4 @@
-# Zero1Local Desktop implementation status (2026-11-12, beta.5 visual rework)
+# Zero1Local Desktop implementation status (2026-11-13, beta.6 NAS workspace and sign-in rework)
 
 ## Completed in source (portable Go verified)
 - Existing Zero1Local management API endpoints reviewed against private NAS source.
@@ -10,6 +10,15 @@
 - Windows SMB drive-letter command adapter, Linux GVfs SMB and NFSv3 (with pkexec) and macOS SMB Finder launcher.
 - Read-only Zero1Local shares and NFS export API requests using per-request bearer token **only** over HTTPS.
 - Go tests for portable core, store, unauthorized API calls, mount validation and unknown appliance.
+
+## Beta 6 source changes
+- App opens in All NAS devices; selecting one explicitly activates its Overview, Files, Shares, Drives, and management navigation.
+- Device-specific workspace shell, breadcrumb, NAS selector, and strictly filtered mappings eliminate cross-NAS visual mixing.
+- Optional per-NAS native OS-vault persistence with live session-cookie resumption, bounded reconnects, rate-limit cooldown, and existing MFA enforcement.
+- Sign out removes saved credentials; Stop remembering can disable auto-sign-in without ending the live session.
+- Independent Windows per-share SMB reconnect option via /persistent:yes, no companion storage of SMB credentials.
+- Tests: two-NAS navigation isolation, OS vault opt-in, restored MFA-approved cookies, TOTP-required relogin, stale-cookie renewal and mapping persistence.
+- Only desktop repository modified. No NAS backend changes. Runtime qualification and final installer publication still gated.
 
 ## Beta 5 source, full-frame UI audit and layout rework
 - Reviewed all 929 frames of the 64.87-second user screencast, including active input bugs, loading-state conflicts, long navigation, share mapping workflow and NAS telemetry formatting. See [UI-VIDEO-AUDIT.md](UI-VIDEO-AUDIT.md).

@@ -61,3 +61,12 @@ See `docs/releases/v0.1.0-beta.1.md` and `docs/releases/v0.1.0-beta.2.md` for re
 - Existing Beta 4 assets are immutable; publish Beta 5 only after native Go tests and `node --test tests/frontend-startup.test.mjs tests/desktop-layout.test.mjs`.
 - Validate keyboard disclosure behavior, the source-colored light/dark themes, NAS selector, full per-appliance sign-in, file list, share mapping, storage gauge and correct empty/loading/error states.
 - Screenshots and 929-frame audit are source evidence, **not** live acceptance of the newly rendered Beta 5 binaries.
+
+## Beta 6 source and release gate
+- Source and updater fallback version: \`v0.1.0-beta.6\`.
+- Native Windows/macOS/Linux credential vault integration depends on pinned \`github.com/zalando/go-keyring v0.2.8\`; both module and platform transitive checksums must be present and \`go mod verify\` must pass.
+- Execute \`node --check\`, both Node test files, \`go test -race -count=1 ./...\`, \`go vet ./...\`, and Wails GTK-tagged test/vet before compiling packages.
+- Verify secure vault/session tests including no plain-text credential leakage, resumed MFA-approved cookies, NAS session expiry recovery, manual sign-out, and Windows share-only reconnect.
+- Keep NAS sessions scoped to the source appliance; no module or process should write credentials to settings JSON.
+- Publish **only** if all build gates pass. Keep Beta 5 immutable and Beta 6 explicitly marked prerelease. Verify 6 release assets and exact source SHA.
+- Native desktop and actual appliance integration tests remain acceptance requirements, including credential vault availability and locked-keyring errors.
