@@ -11,6 +11,13 @@
 - Read-only Zero1Local shares and NFS export API requests using per-request bearer token **only** over HTTPS.
 - Go tests for portable core, store, unauthorized API calls, mount validation and unknown appliance.
 
+## Beta 7: native update repair
+- Separate read-only Check for updates from explicit Install update; show a clear up-to-date, available, downloading, verifying, installation, failure or restart state.
+- Debian-installed copies no longer disable Check for updates. New code downloads into a private directory, verifies the official GitHub release manifest and package identity, and invokes APT through PolicyKit after user confirmation.
+- One-click in-app restart after the verified Debian install. No manual Downloads folder, no NAS changes, no untrusted self-extracting installer.
+- Tests cover latest compatible release selection, checksum mismatch, private staging permissions, update locking, and Debian control fields.
+- Beta 6 still requires one last manual upgrade, after which this updater is active; new code cannot retroactively change existing installed binaries.
+
 ## Beta 6 source changes
 - App opens in All NAS devices; selecting one explicitly activates its Overview, Files, Shares, Drives, and management navigation.
 - Device-specific workspace shell, breadcrumb, NAS selector, and strictly filtered mappings eliminate cross-NAS visual mixing.

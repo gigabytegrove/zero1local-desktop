@@ -70,3 +70,17 @@ See `docs/releases/v0.1.0-beta.1.md` and `docs/releases/v0.1.0-beta.2.md` for re
 - Keep NAS sessions scoped to the source appliance; no module or process should write credentials to settings JSON.
 - Publish **only** if all build gates pass. Keep Beta 5 immutable and Beta 6 explicitly marked prerelease. Verify 6 release assets and exact source SHA.
 - Native desktop and actual appliance integration tests remain acceptance requirements, including credential vault availability and locked-keyring errors.
+
+## Beta 7 integrated update release gate
+
+- Go version `1.26.10`, deterministic commit and embedded `main.currentVersion=0.1.0-beta.7`.
+- Replace the download-only Settings flow with separate `/api/updates/check`, `/api/updates/install` and `/api/updates/restart`. Status must carry installed and latest version, a readable phase, last check and error.
+- Run frontend syntax and layout tests, Go core and updater integration tests (including race detector), native Wails GTK-tagged tests and vet before release.
+- Debian packaging depends on `libgtk-3-0`, `libwebkit2gtk-4.1-0`, and `pkexec`. Do not depend on non-existent bundled root-side update services or change NAS privileges.
+- Verify downloaded release bytes, size and `SHA256SUMS`, exact `Package=zero1local-desktop`, `Architecture=amd64` and the expected Debian version computed from tag/source hash. APT must be called through PolicyKit and no package removal allowed.
+- Install executes only on explicit user choice. A failed/denied authorization must leave a visible error state, and **must not** declare success.
+- A successful Debian installation must confirm dpkg's installed package version before allowing Restart Desktop.
+- Confirm Beta 7 release contains five versioned/portable/updater artifacts plus SHA256SUMS (six files total), and never modify Beta 6's published assets.
+- Current Beta 6 users need a one-time traditional upgrade to Beta 7 because the old executable cannot install its own replacement. After that, upgrades are managed within Settings.
+- A native end-to-end PolicyKit/APT upgrade and restart test on an actual Linux desktop remains a separate acceptance gate. Automated checks alone cannot prove GUI elevation and restart.
+

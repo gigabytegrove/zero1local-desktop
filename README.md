@@ -55,11 +55,22 @@ Native OS vaults: Windows Credential Manager, macOS Keychain, Linux Secret Servi
 4. Select your NAS to use File Manager and the management sections. Use **Sign out** to discard the session. **NAS console** opens the original browser administration UI, which maintains a separate login session.
 5. Share mapping still uses the operating system's SMB/NFS identity, not the NAS's web administrator password. A web login does not bypass share ACLs.
 
+## Beta 7: built-in update lifecycle
+
+- **Settings → Software updates → Check for updates** queries public GitHub Releases and shows either the latest compatible release, an up-to-date result, or a useful error. Checking does **not** install.
+- **Install update** appears only for a newer compatible release. The user confirms the update; Debian installs ask the OS for administrator authorization through PolicyKit. The app never handles the administrator password.
+- Linux `.deb` installs remain managed by Debian's APT/dpkg. Verified downloads go to a private temporary location, **not** `~/Downloads`. The installation stops if SHA-256, package metadata, architecture or installed source is inconsistent.
+- **Restart Desktop now** appears only after Debian's package manager has installed and verified the requested version. The restart helper waits for the old single-instance lock to clear.
+- The native Windows/Linux portable update path still uses Wails' official GitHub provider and dedicated checksum-verified single-entry updater archives.
+- **Installer prerequisites:** desktop Linux packages should depend on `pkexec` (PolicyKit graphical authorization) as well as GTK and WebKit. On systems without a running polkit authentication agent, a user-facing error is reported instead of silently attempting root installation.
+- Previous Beta 6 Debian binaries intentionally only downloaded a `.deb`. They require **one** traditional package upgrade to Beta 7; subsequent updates use the integrated installer.
+- No NAS firmware or server updates occur from the desktop updater.
+
 ## GitHub Releases and built-in updates
 
 - **v0.1.0-beta.1 (bootstrap)** is built from commit `d18ab27f459b9151622d8031badf08263e3102b0`: Linux x64 .deb and portable .tar.gz, plus Windows x64 portable .zip. The owner has confirmed a successful Docker build and SHA-256 validation, but not native GUI/runtime acceptance. **These original binaries do not contain the updater.**
 - **v0.1.0-beta.2** contains the GitHub Releases updater. In native **Settings → Software updates**, choose **Check for updates**; a matching tray menu action is also present. Wails downloads only the platform's dedicated updater bundle and checks `SHA256SUMS` before presenting the restart/install action. It never installs updates on startup.
-- **Linux Debian-managed installs** must remain package-manager managed. Settings provides **Download verified .deb** to fetch a newer Debian package, verify its SHA-256 digest and save it in the user's Downloads folder. The user installs it using their distribution's package manager; the companion does not silently gain root privileges.
+- **v0.1.0-beta.7** replaces the download-only Debian workflow. Settings now checks compatible GitHub releases separately from installation, displays the detected version and result, and offers an explicit **Install update** action. Linux Debian installations stream the selected package into a private staging directory, verify size and SHA-256 against `SHA256SUMS`, validate package identity/version/architecture via `dpkg-deb`, then use PolicyKit graphical administrator authorization and APT to upgrade through Debian's package database. When APT confirms success, click **Restart Desktop now**. No manually downloaded `.deb` is required after upgrading to Beta 7. Portable Windows/Linux remain on the native Wails bundle installer, with Check separate from Install. **Existing Beta 6 Debian installs require one final one-time upgrade to Beta 7**, because their already-shipped updater cannot be changed retrospectively.
 - **v0.1.0-beta.3** corrects the broken desktop workspace loading screen and adds frontend smoke tests.
 - **v0.1.0-beta.4 (source ready for qualification)** adds credentialed onboarding and broader management/File Manager capabilities. Build and release require the full test gate below.
 - **macOS** updater support is implemented for future signed/notarized single-entry .app bundles, but no macOS release has been built.

@@ -76,6 +76,17 @@ Native OS vaults: Windows Credential Manager, macOS Keychain, Linux Secret Servi
 
 **Verification gate:** Node frontend regression suites, Go race and integration tests, Wails GTK tests/vet, cross-platform compilation, architecture checks, checksum verification and exact GitHub release assets. End-to-end native desktop tests and real NAS session/mount acceptance remain required before declaring stable.
 
+## Beta 7: built-in update lifecycle
+
+- **Settings → Software updates → Check for updates** queries public GitHub Releases and shows either the latest compatible release, an up-to-date result, or a useful error. Checking does **not** install.
+- **Install update** appears only for a newer compatible release. The user confirms the update; Debian installs ask the OS for administrator authorization through PolicyKit. The app never handles the administrator password.
+- Linux `.deb` installs remain managed by Debian's APT/dpkg. Verified downloads go to a private temporary location, **not** `~/Downloads`. The installation stops if SHA-256, package metadata, architecture or installed source is inconsistent.
+- **Restart Desktop now** appears only after Debian's package manager has installed and verified the requested version. The restart helper waits for the old single-instance lock to clear.
+- The native Windows/Linux portable update path still uses Wails' official GitHub provider and dedicated checksum-verified single-entry updater archives.
+- **Installer prerequisites:** desktop Linux packages should depend on `pkexec` (PolicyKit graphical authorization) as well as GTK and WebKit. On systems without a running polkit authentication agent, a user-facing error is reported instead of silently attempting root installation.
+- Previous Beta 6 Debian binaries intentionally only downloaded a `.deb`. They require **one** traditional package upgrade to Beta 7; subsequent updates use the integrated installer.
+- No NAS firmware or server updates occur from the desktop updater.
+
 ## Boundaries
 
 The Go companion binds to 127.0.0.1 with a randomized port and enforces origin, host, token, and CSP checks.
