@@ -269,3 +269,79 @@ func TestNASRememberedSessionRenewalThrottledAfterFailure(t *testing.T) {
 		t.Fatalf("renewal cooldown not enforced: %v", err)
 	}
 }
+
+
+func TestMFAApprovedSavedSessionResumesWithoutSecondLogin(t *testing.T) {
+	var loginCalls atomic.Int32
+	nas := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/login":
+			loginCalls.Add(1)
+			var login struct{ Username, Password, TOTP string }
+			if err := json.NewDecoder(r.Body).Decode(&login); err != nil {
+				http.Error(w, "invalid login", 400)
+				return
+			}
+			if login.TOTP != "246810" {
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"totp_required":true}`))
+				return
+			}
+			http.SetCookie(w, &http.Cookie{Name: "zero1_session", Value: "mfa-approved-session", Path: "/", HttpOnly: true})
+			_, _ = w.Write([]byte(`{"ok":true,"username":"root","role":"administrator"}`))
+		case "/api/session":
+			cookie, err := r.Cookie("zero1_session")
+			if err != nil || cookie.Value != "mfa-approved-session" {
+				http.Error(w, "expired", http.StatusUnauthorized)
+				return
+			}
+			_, _ = w.Write([]byte(`{"ok":true,"username":"root"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer nas.Close()
+	svc, err := New(tempStore(t), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vault := &memoryCredentialVault{}
+	svc.ConfigureCredentialVault(vault)
+	id := deviceID(nas.URL)
+	if err := svc.store.Update(func(c *Config) error {
+		c.Devices = append(c.Devices, InstalledDevice{ID: id, Name: "MFA NAS", URL: nas.URL, RememberSignIn: true})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	login := nasLoginRequest{Username: "root", Password: "correct", TOTP: "246810", AllowHTTP: true, Remember: true}
+	session, err := svc.loginNAS(context.Background(), nas.URL, login)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.saveNASCredential(id, nas.URL, login, session); err != nil {
+		t.Fatal(err)
+	}
+	vaultData, err := vault.Get(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved savedNASCredential
+	if err := json.Unmarshal(vaultData, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved.SessionToken != "mfa-approved-session" || saved.SessionExpiresAt.IsZero() {
+		t.Fatal("valid MFA session was not saved in the OS credential vault")
+	}
+	if strings.Contains(string(vaultData), "246810") {
+		t.Fatal("MFA verification code was saved in the OS credential vault")
+	}
+	svc.restoreRememberedSessions()
+	if loginCalls.Load() != 1 {
+		t.Fatalf("existing MFA-approved NAS session forced a second login: %d", loginCalls.Load())
+	}
+	if _, exists := svc.getNASSession(id); !exists {
+		t.Fatal("valid saved MFA session did not restore")
+	}
+}
