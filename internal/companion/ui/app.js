@@ -76,7 +76,7 @@ function field(label,id,placeholder,value="",type="text"){
 }
 function listRail(){
  rail.replaceChildren(...S.settings.devices.map(d=>node("button",{
-  type:"button",class:"device-choice"+(d.id===S.selected?" selected":""),onClick:()=>choose(d.id)},
+  type:"button",class:"device-choice"+(d.id===S.selected&&S.view!=="devices"&&S.view!=="settings"?" selected":""),onClick:()=>choose(d.id)},
   node("span",{class:"connection-dot"+(S.sessions[d.id]?" connected":" disconnected"),"aria-hidden":"true"}),
   node("span",{},node("strong",{text:d.name}),node("small",{text:d.url}))
  )));
@@ -146,7 +146,10 @@ function homePage(){
   node("div",{class:"nas-overview-actions"},
    session?button("Open files",()=>switchView("files"),"btn btn-primary"):
     button("Sign in to NAS",()=>credentialDialog(d.id),"btn btn-primary"),
-   button("Open NAS console",()=>openDevice(d.id),"btn btn-quiet")
+   button("Open NAS console",()=>openDevice(d.id),"btn btn-quiet"),
+   session?d.rememberSignIn?
+    button("Stop remembering",()=>forgetSavedNAS(d.id),"btn btn-quiet"):
+    button("Keep me signed in",()=>credentialDialog(d.id),"btn btn-quiet"):null
   )
  );
  root.append(overview);
@@ -432,7 +435,7 @@ function credentialDialog(id="",address=""){
  const username=content.querySelector("#admin-username"),password=content.querySelector("#admin-password");
  content.querySelector("#remember-nas").checked=!!d?.rememberSignIn;
  username.autocomplete="username";password.autocomplete="current-password";password.required=true;
- dialog(d?"Sign in to "+d.name:"Add Zero1Local appliance",content,async()=>{
+ dialog(d?(sessionFor(d)&&!d.rememberSignIn?"Keep me signed in to "+d.name:"Sign in to "+d.name):"Add Zero1Local appliance",content,async()=>{
   const url=d?d.url:content.querySelector("#add-url").value.trim();
   if(!url)throw new Error("Enter the NAS management address.");
   const payload={username:username.value.trim(),password:password.value,
@@ -448,7 +451,7 @@ function credentialDialog(id="",address=""){
    S.selected=result.id;S.inventory=null;S.fileLocation={id:result.id,share:"",rel:""};S.view="home";render();
    flash("Connected to "+(d?d.name:result.name)+" as "+result.username);
   }finally{password.value="";}
- },d?"Sign in":"Verify & add NAS");
+ },d&&sessionFor(d)&&!d.rememberSignIn?"Save sign-in":d?"Sign in":"Verify & add NAS");
 }
 function forget(d){
  dialog("Forget this appliance?",node("div",{},node("p",{text:"Forget "+d.name+" ("+d.url+") from this computer? No NAS files or settings will be changed."})),
