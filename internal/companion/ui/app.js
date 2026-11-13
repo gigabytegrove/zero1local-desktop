@@ -113,35 +113,77 @@ function render(){
 }
 function homePage(){
  const d=selected(),maps=S.settings.mappings;
- const root=node("div",{},heading("Your Zero1Local workspace","Manage multiple Zero1Local appliances, files, shares and health from one computer."),
- node("div",{class:"health-strip"},
-  ...[[S.settings.devices.length,"Saved appliances"],[maps.length,"Saved mappings"],[Object.keys(S.sessions).length,"Administrator sessions"]].map(([value,name])=>
-   node("div",{class:"health-item"},node("strong",{text:String(value)}),node("span",{text:name}))
- )));
+ const root=node("div",{class:"overview-shell"});
  if(!d){
-  root.append(empty("▣","Find your first Zero1Local","Discover local NAS devices or add an IP address or hostname.",button("Scan for Zero1Local",discover,"btn btn-primary")));
+  root.append(heading("Your NAS workspace","Keep your Zero1Local appliances, files and shared drives together."),
+   empty("▣","No appliance connected","Find a Zero1Local NAS on your network, or add one directly by its management address.",
+    node("div",{class:"empty-actions"},button("Find appliances",discover,"btn btn-primary"),
+     button("Add by address",()=>addDialog(),"btn btn-quiet"))));
   return root;
  }
- root.append(connectionBanner(d));
- root.append(section("Selected appliance",node("div",{class:"detail-grid"},
-  node("div",{class:"detail-main"},node("h2",{text:d.name}),
-   node("dl",{class:"facts"},
-    node("dt",{text:"Management address"}),node("dd",{class:"path",text:d.url}),
-    node("dt",{text:"Zero1Local version"}),node("dd",{text:d.version||"Not reported"}),
-    node("dt",{text:"Connection"}),node("dd",{},node("span",{class:"state-label warn",text:"Saved; not continuously monitored"}))
-   ),
-   node("div",{class:"form-actions"},button("Open complete NAS console",()=>openDevice(d.id),"btn btn-primary"),
-    button("File manager",()=>switchView("files")),
-    button("Connect shares",()=>{S.view="shares";render()}))
+ const session=S.sessions[d.id];
+ const dMaps=maps.filter(m=>m.deviceId===d.id);
+ const overview=node("header",{class:"nas-overview"},
+  node("div",{class:"nas-overview-main"},
+   node("div",{class:"nas-overview-meta"},node("span",{class:"nas-state "+(session?"online":"offline"),
+    text:session?"● Administrator connected":"○ Sign-in required"}),
+    node("span",{class:"nas-version",text:"Zero1Local "+(d.version||"version unknown")})),
+   node("h1",{text:d.name}),
+   node("p",{class:"nas-address",text:d.url}),
+   node("p",{class:"nas-overview-caption",text:session?
+     "Signed in as "+session.username+". NAS permissions are enforced by Zero1Local.":
+     "The appliance is saved on this computer, but no active administrator session is available."})
   ),
-  node("div",{class:"detail-aside"},node("h2",{text:"Complete NAS management"}),
-   node("p",{text:"The original Zero1Local console keeps its complete feature set, users, privileges, and MFA. Desktop share connections use the host operating system."}),
-   node("p",{class:"hint",text:"Advanced configuration opens the original Zero1Local console in your system browser. That browser has its own separate NAS login session; desktop sessions cannot be shared across the security boundary."}))
- )));
- root.append(section("Your saved mounts",maps.length?table(["Target","Share","Action"],
-  maps.map(m=>[primary(m.target||"Desktop volume",m.protocol.toUpperCase()),node("span",{class:"path",text:m.server+"/"+m.remote}),
-   button("Disconnect",()=>confirmUnmount(m))])
- ):empty("⌘","No mounts configured","Use Shares & access to connect a NAS folder.",button("Connect a share",()=>{S.view="shares";render()}))));
+  node("div",{class:"nas-overview-actions"},
+   session?button("Open files",()=>switchView("files"),"btn btn-primary"):
+    button("Sign in to NAS",()=>credentialDialog(d.id),"btn btn-primary"),
+   button("Open NAS console",()=>openDevice(d.id),"btn btn-quiet")
+  )
+ );
+ root.append(overview);
+ root.append(node("div",{class:"workspace-stats"},
+  ...[[String(S.settings.devices.length),"Appliances"],[String(dMaps.length),"Mapped drives"],
+    [session?"Connected":"Sign-in needed","Administrator session"]].map(([value,label])=>
+    node("div",{class:"workspace-stat"},node("strong",{text:value}),node("span",{text:label}))
+  )
+ ));
+ root.append(node("div",{class:"workspace-columns"},
+  node("section",{class:"workspace-section"},
+   node("h2",{text:"Work with "+d.name}),
+   node("p",{class:"muted",text:"Common tasks stay in the desktop. Use the full console for advanced administration."}),
+   node("div",{class:"workspace-task-list"},
+    ...[
+     ["▦","Browse files","Open shared folders and manage files",()=>switchView("files")],
+     ["▤","Connect shared folders","Review SMB/NFS exports and map a drive",()=>switchView("shares")],
+     ["◫","Check storage","RAID, disk usage and SMART information",()=>switchView("storage")],
+     ["≡","View NAS tasks","Background work, jobs and notifications",()=>switchView("tasks")]
+    ].map(([symbol,title,desc,handler])=>
+     node("button",{class:"workspace-task",type:"button",onClick:handler},
+      node("span",{class:"workspace-task-symbol",text:symbol,"aria-hidden":"true"}),
+      node("span",{class:"workspace-task-copy"},node("strong",{text:title}),node("small",{text:desc})),
+      node("span",{class:"workspace-task-chevron",text:"›","aria-hidden":"true"})
+     ))
+   )
+  ),
+  node("section",{class:"workspace-section"},
+   node("div",{class:"workspace-section-header"},
+    node("h2",{text:"This computer"}),
+    button("Manage mappings",()=>switchView("mounts"),"btn btn-quiet")),
+   node("dl",{class:"quick-facts"},
+    node("dt",{text:"NAS address"}),node("dd",{class:"path",text:new URL(d.url).host}),
+    node("dt",{text:"Active session"}),node("dd",{text:session?session.username+" · "+(session.role||"administrator"):"Not signed in"}),
+    node("dt",{text:"Saved mappings"}),node("dd",{text:String(dMaps.length)}),
+    node("dt",{text:"Security"}),node("dd",{text:d.url.startsWith("https://")?"HTTPS":"HTTP · unencrypted"})
+   ),
+   dMaps.length?node("div",{class:"home-mappings"},
+    ...dMaps.slice(0,5).map(m=>node("div",{class:"home-mapping"},
+     node("strong",{text:m.target||m.protocol.toUpperCase()}),
+     node("span",{class:"path",text:m.server+"/"+m.remote})
+    ))):node("div",{class:"quiet-empty",text:"No share mappings saved for this appliance."}),
+   session?button("Open system overview",()=>switchView("system"),"btn btn-quiet"):
+    button("Authenticate appliance",()=>credentialDialog(d.id),"btn btn-quiet")
+  )
+ ));
  return root;
 }
 function devicesPage(){
@@ -543,27 +585,89 @@ function recordsTable(items){
  return table(keys.slice(0,6).map(humanize),items.slice(0,100).map(x=>keys.slice(0,6).map(k=>
   node("span",{class:"cell-value",text:dataValue(x?.[k])}))));
 }
+function infoLine(label,value){
+ return node("div",{class:"info-line"},node("dt",{text:label}),node("dd",{text:dataValue(value)}));
+}
+function formatPercent(num){
+ const v=Number(num);if(!Number.isFinite(v))return null;
+ return Math.max(0,Math.min(100,v));
+}
+function storageGauge(label,usage){
+ if(!usage||typeof usage!=="object")return null;
+ const percent=formatPercent(usage.percent??usage.used_percent??usage.use_percent);
+ return node("div",{class:"capacity-line"},
+  node("div",{class:"capacity-top"},node("strong",{text:label}),
+   node("span",{text:percent===null?"Capacity unknown":percent.toFixed(1)+"% used"})),
+  node("div",{class:"capacity-bar",role:"meter","aria-label":label,
+   "aria-valuenow":percent===null?0:percent,"aria-valuemin":"0","aria-valuemax":"100"},
+   node("span",{style:"width:"+(percent===null?0:percent)+"%"})),
+  node("div",{class:"capacity-meta"},
+   node("span",{text:"Used "+formatBytes(usage.used||0)}),
+   node("span",{text:"Available "+formatBytes(usage.available??usage.avail??0)}),
+   node("span",{text:usage.fstype||""})
+  )
+ );
+}
+function managementOverview(view,data){
+ if(view==="storage"){
+  const usages=[storageGauge("Main storage · /disk0",data.data_usage),storageGauge("System volume · /",data.root_usage)].filter(Boolean);
+  const status=node("div",{class:"system-summary"},
+   node("h2",{text:"Storage capacity"}),
+   usages.length?node("div",{class:"capacity-stack"},...usages):node("p",{class:"hint",text:"The NAS has not reported usable capacity details."})
+  );
+  const raid=Array.isArray(data.raid)?data.raid:[];
+  const root=node("div",{class:"data-blocks"},status);
+  root.append(section("RAID arrays",raid.length?recordsTable(raid):
+   node("p",{class:"hint",text:"No RAID arrays were reported."})));
+  if(typeof data.mdstat==="string"&&data.mdstat.trim()){
+   const details=node("details",{class:"raw-details"},node("summary",{text:"View raw RAID diagnostics"}),
+    node("pre",{text:data.mdstat}));
+   root.append(details);
+  }
+  const smart=Array.isArray(data.smart)?data.smart:[];
+  if(smart.length)root.append(section("Disk health and SMART",recordsTable(smart)));
+  return root;
+ }
+ if(view==="system"){
+  const os=data.os&&typeof data.os==="object"?data.os:{};
+  const facts=[
+   ["Hostname",data.hostname],["Device model",data.model],
+   ["Operating system",os.name??data.os],["OS kernel",data.kernel],
+   ["Architecture",data.arch],["Uptime",data.uptime]
+  ];
+  return node("div",{class:"data-blocks"},
+   section("Device identity",node("dl",{class:"info-list"},
+    ...facts.filter(([,v])=>v!==undefined&&v!==null&&v!=="").map(([k,v])=>infoLine(k,v)))),
+   data.memory?section("Memory",node("dl",{class:"info-list"},...Object.entries(data.memory).slice(0,9).map(([k,v])=>infoLine(humanize(k),v)))):null
+  );
+ }
+ return null;
+}
 function managementPage(view){
- const d=selected(),meta=managedViews[view],root=node("div",{},heading(meta.title,meta.description));
- if(!d){root.append(empty("▣","Select an appliance","Add or select a NAS to see this information.",button("My appliances",()=>switchView("devices"),"btn btn-primary")));return root}
+ const d=selected(),meta=managedViews[view],root=node("div",{class:"management-view"},heading(meta.title,meta.description));
+ if(!d){root.append(empty("▣","Select an appliance","Choose a NAS to view management information.",button("My appliances",()=>switchView("devices"),"btn btn-primary")));return root}
  if(!sessionFor(d)){root.append(liveEmpty(d));return root}
  const key=liveKey(d,meta.resource),data=S.live[key];
- root.append(liveToolbar(d,key),liveErrorNode(key));
- if(S.liveLoading===key&&!data)root.append(node("p",{class:"loading",role:"status",text:"Loading verified NAS data…"}));
- if(!data&&!S.liveErrors[key])root.append(button("Load "+meta.title,()=>refreshLive(),"btn btn-primary"));
+ root.append(liveToolbar(d,key));
+ const warning=liveErrorNode(key);if(warning)root.append(warning);
+ if(S.liveLoading===key&&!data)root.append(node("div",{class:"loading-state",role:"status"},
+  node("span",{class:"loading-dot","aria-hidden":"true"}),node("span",{text:"Retrieving "+meta.title.toLowerCase()+" from "+d.name+"…"})));
+ if(!data&&!S.liveErrors[key]&&S.liveLoading!==key)root.append(node("div",{class:"start-state"},
+  node("strong",{text:"Ready to read "+meta.title.toLowerCase()}),
+  node("p",{text:"This section only reads data that "+d.name+" permits your account to access."}),
+  button("Load "+meta.title,()=>refreshLive(),"btn btn-primary")));
  if(data){
-  if(view==="storage"){
-   root.append(section("Capacity & RAID",node("div",{class:"metrics-grid"},
-    ...["data_usage","root_usage","mdstat","smart_available"].map(k=>
-     node("div",{class:"metric-item"},node("small",{text:humanize(k)}),node("strong",{text:dataValue(data?.[k])}))
-    ))));
+  const specialized=managementOverview(view,data);
+  if(specialized)root.append(specialized);
+  else{
+   const items=rowsFromData(data,meta.resource);
+   if(items.length)root.append(section("NAS inventory",recordsTable(items)));
+   const summary=Object.entries(data).filter(([,v])=>v!==null&&!Array.isArray(v)&&typeof v!=="object"&&typeof v!=="string"||typeof v==="string"&&v.length<180).slice(0,12);
+   if(summary.length)root.append(section("Details",node("dl",{class:"info-list"},
+    ...summary.map(([k,v])=>infoLine(humanize(k),v)))));
+   if(!items.length&&!summary.length)root.append(node("div",{class:"quiet-empty",text:"No additional data was reported by the NAS."}));
   }
-  const items=rowsFromData(data,meta.resource);
-  if(items.length)root.append(section("Reported inventory",recordsTable(items)));
-  else if(view!=="storage")root.append(section("Reported status",node("div",{class:"metrics-grid"},
-   ...Object.entries(data).slice(0,12).map(([k,v])=>node("div",{class:"metric-item"},
-    node("small",{text:humanize(k)}),node("strong",{text:dataValue(v)}))))));
-  root.append(node("p",{class:"hint",text:"These are live read-only values from Zero1Local. Create, edit, delete and other administrative operations remain available in the original secured NAS console."}));
+  root.append(node("p",{class:"hint management-footer",text:"Live, read-only NAS data. Administrative changes remain in the original secure NAS console."}));
  }
  return root;
 }
