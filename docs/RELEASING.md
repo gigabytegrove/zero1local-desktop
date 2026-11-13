@@ -46,3 +46,12 @@ No GitHub release asset should be replaced or overwritten after publication. If 
 The owner-reported successful builder log recorded `BUILD_AND_PACKAGING_SUCCESS` and verified three original archives, with files located under `/root/zero1local-desktop/dist` on dockeradm. This conversation does **not** have direct access to that server's filesystem. Publication requires uploading those exact original files from dockeradm using the GitHub CLI.
 
 See `docs/releases/v0.1.0-beta.1.md` and `docs/releases/v0.1.0-beta.2.md` for release notes.
+
+## Beta 4 source and validation gate
+
+- Source tag must point to the exact commit built on dockeradm; embedded `main.currentVersion` must equal `0.1.0-beta.4`.
+- Run `node --check` on the frontend scripts and `node --test tests/frontend-startup.test.mjs` before the native build.
+- Run Go tests with the race detector, Go vet and the Wails GTK-tagged test/vet checks. Beta 4 includes NAS authentication and file-operation integration tests with a local mock NAS.
+- Package Windows and Linux installers and two **single-entry** updater archives using the stable asset names above. Verify the manifest and remote release list.
+- Tests on actual NAS devices must cover successful admin authentication, invalid credentials, TOTP, HTTP opt-in, HTTPS certificate handling, session expiry, separate NAS identities, share browsing, uploads/downloads, and NAS-level ACL enforcement before public stable promotion.
+- File transfers over 256 MiB and desktop operations that require unverified management mutation contracts must continue to use the full Zero1Local console. Never imply all NAS features have been reproduced in the native wrapper.

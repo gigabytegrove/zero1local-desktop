@@ -14,6 +14,14 @@
 | Dead appliance triggers repeated credential prompts | Bounded retries, pause on authentication error, notify once per event |
 | Compromised NAS uses updater path | Signed desktop release bundles, checksums, immutable GitHub Releases, no code execution from NAS responses |
 
+## Administrator onboarding and local session boundary
+
+The desktop sends username/password/TOTP directly from its localhost UI to its own Go service over loopback, then to the selected NAS's documented `POST /api/login` with Zero1Local's mutation guard. It verifies login success and the issued `zero1_session` cookie before saving a new device. Each NAS has its own in-memory `http.CookieJar`. Local APIs never return NAS session cookies, API keys or administrator passwords, and neither startup nor logout saves them.
+
+TLS uses the operating system trust store with normal certificate verification and no insecure skip. Cleartext HTTP administrator login requires the user to explicitly acknowledge unencrypted password transmission each time. The NAS client does not accept redirects or inherited HTTP proxies. NAS responses are bounded JSON from an exact endpoint allowlist, not a general-purpose remote-content proxy.
+
+File mutations call only `/api/files/mkdir`, `/api/files/rename` and `/api/files/trash` with the existing NAS request guard; the NAS is solely responsible for share-root validation and ACL enforcement. Downloads and uploads have 256 MiB bounds and a per-action local CSRF token. Permanent deletion, NAS shell access, arbitrary forwarding and untrusted NAS-origin script loading are not implemented.
+
 ## Trust boundary
 Zero1Local's existing server authorizes all administration. Desktop code must not implement an unprivileged workaround for API ACL, login, CSRF, TOTP or NFS root squash. A host being reachable does not prove the authenticated user's access. Management sessions remain specific to each appliance and are not copied between webviews.
 
