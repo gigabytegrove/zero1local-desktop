@@ -14,7 +14,6 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gigabytegrove/zero1local-desktop/internal/appliance"

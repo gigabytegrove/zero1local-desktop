@@ -176,7 +176,7 @@ func(s *Server)remove(w http.ResponseWriter,r *http.Request){
   return errors.New("unknown appliance")
  })
  if err!=nil{s.bad(w,err);return}
- s.dropNASSession(in.ID)
+ if session:=s.dropNASSession(in.ID);session!=nil{session.client.CloseIdleConnections()}
  s.writeJSON(w,200,map[string]any{"ok":true})
 }
 func(s *Server)theme(w http.ResponseWriter,r *http.Request){
