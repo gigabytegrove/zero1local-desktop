@@ -1,4 +1,4 @@
-# Zero1Local Desktop implementation status (2026-11-12, beta.4 development)
+# Zero1Local Desktop implementation status (2026-11-12, beta.5 visual rework)
 
 ## Completed in source (portable Go verified)
 - Existing Zero1Local management API endpoints reviewed against private NAS source.
@@ -10,6 +10,15 @@
 - Windows SMB drive-letter command adapter, Linux GVfs SMB and NFSv3 (with pkexec) and macOS SMB Finder launcher.
 - Read-only Zero1Local shares and NFS export API requests using per-request bearer token **only** over HTTPS.
 - Go tests for portable core, store, unauthorized API calls, mount validation and unknown appliance.
+
+## Beta 5 source, full-frame UI audit and layout rework
+- Reviewed all 929 frames of the 64.87-second user screencast, including active input bugs, loading-state conflicts, long navigation, share mapping workflow and NAS telemetry formatting. See [UI-VIDEO-AUDIT.md](UI-VIDEO-AUDIT.md).
+- Redesigned the existing first-party desktop shell around a visible NAS switcher, compact sidebar and disclosure-based management navigation.
+- Replaced repetitive overview cards with an appliance-focused command workspace and one-click task list.
+- Fixed browser PointerEvent leakage into the onboarding address field and literal null in file/management pages.
+- Reformatted storage health into capacity, RAID and diagnostic views and made verified share selection the first mapping step.
+- Added responsive styles and targeted DOM regression tests.
+- Still requires native graphical acceptance on Windows/Linux plus controlled-release updater testing.
 
 ## Beta 4 development (credentialed desktop management)
 - New devices require successful administrator login against Zero1Local's real `POST /api/login` with optional TOTP before being saved.
