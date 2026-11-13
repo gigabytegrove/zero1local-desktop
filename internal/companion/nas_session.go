@@ -309,7 +309,7 @@ func (s *Server) readNAS(w http.ResponseWriter, r *http.Request) {
 	}
 	session, ok := s.activeNASSession(r.Context(),in.ID)
 	if !ok {
-		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "sign in to this NAS to view its management data"})
+		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "NAS session expired or sign-in is required for this appliance"})
 		return
 	}
 	target := session.origin + path

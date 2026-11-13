@@ -45,6 +45,10 @@ async function reload(){
  const result=await request("/api/state");
  S.settings=result.settings;S.platform=result.platform;S.updater=result.updater||S.updater;S.sessions=result.sessions||{};
  S.sessionRecovery=result.sessionRecovery||{};S.credentialVaultAvailable=!!result.credentialVaultAvailable;
+ if(Object.values(S.sessionRecovery).some(message=>message?.startsWith("Restoring"))&&!S.restorePollScheduled){
+  S.restorePollScheduled=true;
+  setTimeout(()=>{S.restorePollScheduled=false;reload().catch(error=>flash(error.message||"Unable to refresh NAS sessions"))},1600);
+ }
  if(S.selected&&!getDevice(S.selected)){S.selected="";S.view="devices"}
  theme();render();
 }
@@ -258,7 +262,7 @@ function sharesPage(){
   S.platform==="windows"?node("label",{class:"share-reconnect-option"},
    node("input",{id:"share-reconnect",type:"checkbox"}),
    node("span",{},node("strong",{text:"Reconnect this SMB drive when I sign in to Windows"}),
-    node("small",{text:"Windows manages this persistent mapping and any share credentials in Windows Credential Manager. It does not use the NAS administrator password."}))
+    node("small",{text:"Windows remembers this mapped drive and uses its saved share login if needed. This is separate from your NAS administrator sign-in."}))
   ):node("p",{class:"hint",text:"On this operating system, share authentication and reconnect behavior are managed by your file manager. The companion will not silently store SMB or NFS passwords."}),
   node("div",{class:"form-actions"},button("Connect share",connectShare,"btn btn-primary"))
  );
@@ -419,8 +423,8 @@ function credentialDialog(id="",address=""){
    node("input",{type:"checkbox",id:"remember-nas",disabled:!S.credentialVaultAvailable}),
    node("span",{},node("strong",{text:"Keep me signed in to this NAS"}),
     node("small",{text:S.credentialVaultAvailable?
-     "Save this NAS username and password in your computer’s secure credential vault for automatic sign-in and session renewal. Two-factor verification may still be required.":
-     "Secure credential storage isn't available in this runtime. Sign-in will last for this app session only."}))
+     "Your computer securely saves this NAS username and password so you can reconnect automatically. The NAS may still ask for a two-factor code.":
+     "This computer cannot securely save a NAS sign-in right now. You can still sign in for the current session."}))
   ),
   node("p",{class:"hint",text:"Each NAS has its own sign-in. NAS passwords are never written to Zero1Local Desktop settings. Windows SMB share credentials are managed separately by Windows."}),
   node("p",{class:"signin-error",id:"signin-error","aria-live":"assertive"})
