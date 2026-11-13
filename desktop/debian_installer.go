@@ -35,6 +35,20 @@ func expectedDebianPackageVersion(releaseVersion,assetName string)(string,error)
  if m==nil{return "",errors.New("invalid Debian prerelease version")}
  return m[1]+"~"+m[2]+m[3]+"+git"+name[1],nil
 }
+// dpkg-deb -f with field names emits "Package: x" lines, not bare values.
+func parseDebianMetadata(raw string)map[string]string{
+ result:=make(map[string]string)
+ for _,line:=range strings.Split(raw,"\n"){
+  name,value,ok:=strings.Cut(line,":")
+  if !ok{continue}
+  name=strings.TrimSpace(name)
+  if name=="Package"||name=="Architecture"||name=="Version"{
+   if _,exists:=result[name];exists{return map[string]string{}}
+   result[name]=strings.TrimSpace(value)
+  }
+ }
+ return result
+}
 func validateDebianUpgrade(ctx context.Context,filename,releaseVersion string)error{
  if !filepath.IsAbs(filename){return errors.New("updater package path must be absolute")}
  info,err:=os.Lstat(filename)
@@ -45,8 +59,8 @@ func validateDebianUpgrade(ctx context.Context,filename,releaseVersion string)er
  cmd:=exec.CommandContext(ctx,"/usr/bin/dpkg-deb","--field",filename,"Package","Architecture","Version")
  result,err:=cmd.Output()
  if err!=nil{return fmt.Errorf("cannot inspect downloaded Debian package: %w",err)}
- values:=strings.Fields(string(result))
- if len(values)!=3||values[0]!="zero1local-desktop"||values[1]!="amd64"||values[2]!=expected{
+ fields:=parseDebianMetadata(string(result))
+ if fields["Package"]!="zero1local-desktop"||fields["Architecture"]!="amd64"||fields["Version"]!=expected{
   return fmt.Errorf("verified release package metadata does not match the requested version %s",releaseVersion)
  }
  return nil
