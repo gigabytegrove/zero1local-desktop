@@ -81,7 +81,7 @@ func resumeNASSavedCookie(ctx context.Context, address string, record savedNASCr
  if err!=nil{return nil,err}
  client.Jar.SetCookies(target,[]*http.Cookie{{Name:"zero1_session",Value:record.SessionToken,
   Path:"/",HttpOnly:true,Secure:target.Scheme=="https",Expires:record.SessionExpiresAt}})
- req,err:=http.NewRequestWithContext(ctx,http.MethodGet,address+"/api/system",nil)
+ req,err:=http.NewRequestWithContext(ctx,http.MethodGet,address+"/api/session",nil)
  if err!=nil{return nil,err}
  req.Header.Set("Accept","application/json")
  req.Header.Set("User-Agent","Zero1Local-Desktop")
@@ -254,7 +254,7 @@ func (s *Server) renewRememberedNAS(ctx context.Context, id string, expected *na
 // from a NAS reboot that invalidates a cookie when a saved login is enabled.
 func (s *Server) activeNASSession(ctx context.Context, id string) (*nasSession, bool) {
 	current, ok := s.getNASSession(id)
-	if ok && (current.expiresAt.IsZero()&&time.Since(current.since)<7*time.Hour+45*time.Minute || !current.expiresAt.IsZero()&&time.Until(current.expiresAt)>15*time.Minute) {
+	if ok && (current.expiresAt.IsZero()&&time.Since(current.since)<7*time.Hour+45*time.Minute || !current.expiresAt.IsZero()&&time.Until(current.expiresAt)>0) {
 		return current, true
 	}
 	device, exists := s.store.Device(id)

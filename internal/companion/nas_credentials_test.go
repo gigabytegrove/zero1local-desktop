@@ -65,7 +65,7 @@ func TestRememberedNASRestoresRenewsAndSignsOut(t *testing.T) {
 			activeToken.Store(logins.Load())
 			http.SetCookie(w, &http.Cookie{Name: "zero1_session", Value: token, Path: "/", HttpOnly: true})
 			_, _ = w.Write([]byte(`{"ok":true,"username":"root","role":"administrator"}`))
-		case "/api/system":
+		case "/api/session", "/api/system":
 			cookie, err := r.Cookie("zero1_session")
 			if err != nil || cookie.Value != strconv.Itoa(int(activeToken.Load())) {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -121,12 +121,12 @@ func TestRememberedNASRestoresRenewsAndSignsOut(t *testing.T) {
 
 	svc.clearNASSessions()
 	svc.restoreRememberedSessions()
-	if _, exists := svc.getNASSession(id); !exists || logins.Load() != 2 {
-		t.Fatalf("saved NAS session was not restored, total logins=%d", logins.Load())
+	if _, exists := svc.getNASSession(id); !exists || logins.Load() != 1 {
+		t.Fatalf("valid saved NAS cookie was not resumed, total logins=%d", logins.Load())
 	}
 	activeToken.Add(1) // NAS reboot or session invalidation.
 	read := nasTestRequest(t, svc, "POST", "/api/nas/read", map[string]string{"id": id, "resource": "system"})
-	if read.Code != http.StatusOK || !strings.Contains(read.Body.String(), "saved-nas") || logins.Load() != 3 {
+	if read.Code != http.StatusOK || !strings.Contains(read.Body.String(), "saved-nas") || logins.Load() != 2 {
 		t.Fatalf("NAS expiry was not recovered automatically: HTTP %d %s; logins=%d",
 			read.Code, read.Body.String(), logins.Load())
 	}
