@@ -36,6 +36,7 @@ type nasLoginRequest struct {
 	Username  string `json:"username"`
 	Password  string `json:"password"`
 	TOTP      string `json:"totp"`
+	Remember bool `json:"remember"`
 	AllowHTTP bool   `json:"allowHTTP"`
 }
 
