@@ -251,6 +251,7 @@ func (s *Server) connectNAS(w http.ResponseWriter, r *http.Request) {
 		s.bad(w, err)
 		return
 	}
+	if err:=s.rememberExistingNAS(device.ID,device.URL,in);err!=nil {session.client.CloseIdleConnections();s.bad(w,err);return}
 	s.nasMu.Lock()
 	if old := s.nasSessions[device.ID]; old != nil {
 		old.client.CloseIdleConnections()
@@ -271,7 +272,12 @@ func (s *Server) disconnectNAS(w http.ResponseWriter, r *http.Request) {
 		s.bad(w, err)
 		return
 	}
-	session := s.dropNASSession(in.ID)
+	if d,ok:=s.store.Device(in.ID);ok&&d.RememberSignIn{
+  if err:=s.removeNASCredential(in.ID);err!=nil{s.bad(w,err);return}
+  if err:=s.store.Update(func(c *Config)error{for i:=range c.Devices{if c.Devices[i].ID==in.ID{c.Devices[i].RememberSignIn=false;return nil}};return errors.New("unknown appliance")});err!=nil{s.bad(w,err);return}
+ }
+ s.setNASRecoveryStatus(in.ID,"")
+ session := s.dropNASSession(in.ID)
 	if session != nil {
 		// Best-effort remote sign-out. Local session is discarded even if the
 		// NAS is offline. Never print cookies or session details to a log.
@@ -301,7 +307,7 @@ func (s *Server) readNAS(w http.ResponseWriter, r *http.Request) {
 		s.bad(w, errors.New("unsupported NAS resource"))
 		return
 	}
-	session, ok := s.getNASSession(in.ID)
+	session, ok := s.activeNASSession(r.Context(),in.ID)
 	if !ok {
 		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "sign in to this NAS to view its management data"})
 		return
@@ -339,26 +345,33 @@ func (s *Server) readNAS(w http.ResponseWriter, r *http.Request) {
 		s.bad(w, errors.New("unexpected resource arguments"))
 		return
 	}
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, target, nil)
-	if err != nil {
-		s.bad(w, err)
-		return
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "Zero1Local-Desktop")
-	resp, err := session.client.Do(req)
-	if err != nil {
-		s.writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Unable to reach the NAS: " + err.Error()})
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		if resp.StatusCode == http.StatusUnauthorized {
-			s.dropNASSession(in.ID)
-		}
-		s.writeJSON(w, resp.StatusCode, map[string]string{"error": "the NAS session expired or this administrator lacks permission"})
-		return
-	}
+	var resp *http.Response
+ for attempt:=0;attempt<2;attempt++{
+  req,err:=http.NewRequestWithContext(r.Context(),http.MethodGet,target,nil)
+  if err!=nil{s.bad(w,err);return}
+  req.Header.Set("Accept","application/json")
+  req.Header.Set("User-Agent","Zero1Local-Desktop")
+  resp,err=session.client.Do(req)
+  if err!=nil{s.writeJSON(w,http.StatusBadGateway,map[string]string{"error":"Unable to reach the NAS: "+err.Error()});return}
+  if resp.StatusCode==http.StatusUnauthorized && attempt==0{
+   resp.Body.Close()
+   refreshed,err:=s.renewRememberedNAS(r.Context(),in.ID,session)
+   if err==nil{
+    session=refreshed
+    continue
+   }
+   s.dropNASSession(in.ID)
+   s.writeJSON(w,http.StatusUnauthorized,map[string]string{"error":"NAS session expired. Sign in again if this NAS needs a verification code."})
+   return
+  }
+  break
+ }
+ defer resp.Body.Close()
+ if resp.StatusCode==http.StatusUnauthorized||resp.StatusCode==http.StatusForbidden{
+  if resp.StatusCode==http.StatusUnauthorized{s.dropNASSession(in.ID)}
+  s.writeJSON(w,resp.StatusCode,map[string]string{"error":"NAS session expired or this account is not permitted to access this section"})
+  return
+ }
 	if resp.StatusCode != http.StatusOK {
 		s.writeJSON(w, http.StatusBadGateway, map[string]string{
 			"error": fmt.Sprintf("NAS %s returned HTTP %d", in.Resource, resp.StatusCode),
@@ -396,7 +409,7 @@ func (s *Server) nasFileAction(w http.ResponseWriter, r *http.Request) {
 		s.bad(w, err)
 		return
 	}
-	session, ok := s.getNASSession(in.ID)
+	session, ok := s.activeNASSession(r.Context(),in.ID)
 	if !ok {
 		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "NAS administrator sign-in is required"})
 		return
@@ -484,7 +497,7 @@ func (s *Server) downloadNASFile(w http.ResponseWriter, r *http.Request) {
 		s.bad(w, err)
 		return
 	}
-	session, ok := s.getNASSession(in.ID)
+	session, ok := s.activeNASSession(r.Context(),in.ID)
 	if !ok {
 		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "NAS administrator sign-in is required"})
 		return
@@ -535,7 +548,7 @@ func (s *Server) downloadNASFile(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) uploadNASFile(w http.ResponseWriter, r *http.Request) {
 	id, folder := r.URL.Query().Get("id"), r.URL.Query().Get("path")
-	session, ok := s.getNASSession(id)
+	session, ok := s.activeNASSession(r.Context(),id)
 	if !ok {
 		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "NAS administrator sign-in is required"})
 		return
