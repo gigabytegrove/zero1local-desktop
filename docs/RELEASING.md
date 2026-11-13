@@ -84,3 +84,23 @@ See `docs/releases/v0.1.0-beta.1.md` and `docs/releases/v0.1.0-beta.2.md` for re
 - Current Beta 6 users need a one-time traditional upgrade to Beta 7 because the old executable cannot install its own replacement. After that, upgrades are managed within Settings.
 - A native end-to-end PolicyKit/APT upgrade and restart test on an actual Linux desktop remains a separate acceptance gate. Automated checks alone cannot prove GUI elevation and restart.
 
+
+## Go 1.26 formatting gate and release provenance
+
+Go 1.26 `gofmt -d` exits with status 1 when it finds formatting changes. Its
+nonzero exit status **does not, by itself, indicate invalid Go syntax**.
+Do not redirect the diff to a hidden file and describe it as a syntax check.
+
+For a pinned release, use the existing **dockeradm command-block** release
+workflow, but format new Go files in a fresh detached worktree with `gofmt -w`
+before compiling. Run `git diff --check`, all Node tests, Go race tests,
+Go vet, Wails GTK-tagged tests, and Linux/Windows builds against that exact
+formatted worktree. Only after successful checks: commit formatting in the
+temporary worktree, push its resulting SHA to `main` (fast-forward only),
+and publish the prerelease tag against that same tested SHA. This avoids
+publishing a tag for a different source revision from what was compiled,
+and avoids pushing untested changes to `main`.
+
+On any build failure, **do not publish**, do not change the existing release,
+and show log lines beginning at the first test/compile stage rather than the
+last hundred APT setup lines. Keep the original production worktree intact.
