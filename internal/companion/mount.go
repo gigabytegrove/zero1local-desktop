@@ -26,6 +26,7 @@ type MountRequest struct {
  Server string `json:"server"`
  Remote string `json:"remote"`
  Target string `json:"target"`
+ Reconnect bool `json:"reconnect,omitempty"`
 }
 type MountResult struct {
  Status string `json:"status"`
@@ -63,6 +64,7 @@ func validateRequest(req MountRequest,goos string)(MountRequest,error){
  default:
   return req,errors.New("protocol must be smb or nfs")
  }
+ if req.Reconnect && (goos!="windows" || req.Protocol!="smb") {return req,errors.New("automatic share reconnection currently requires Windows SMB")}
  switch goos{
  case "windows":
   if req.Protocol!="smb"{return req,errors.New("Windows NFSv3 requires a later verified mount adapter; use SMB")}
@@ -109,7 +111,8 @@ func(s *Server)mount(ctx context.Context,req MountRequest)(MountResult,error){
  case "windows":
   if _,err:=os.Stat(req.Target+string(rune(92)));err==nil{return MountResult{},errors.New("Windows drive letter already exists")}
   unc:=string([]rune{92,92})+req.Server+string(rune(92))+req.Remote
-  output,err=s.runner.Run(ctx,"net","use",req.Target,unc,"/persistent:no")
+  persistence:="/persistent:no";if req.Reconnect{persistence="/persistent:yes"}
+  output,err=s.runner.Run(ctx,"net","use",req.Target,unc,persistence)
  case "linux":
   if req.Protocol=="smb"{
    output,err=s.runner.Run(ctx,"gio","mount",smbURI(req.Server,req.Remote))
@@ -130,7 +133,7 @@ func(s *Server)mount(ctx context.Context,req MountRequest)(MountResult,error){
  }
  m:=Mapping{
   ID:deviceID(req.DeviceID+"|"+req.Protocol+"|"+req.Server+"|"+req.Remote+"|"+req.Target),
-  DeviceID:req.DeviceID,Protocol:req.Protocol,Server:req.Server,Remote:req.Remote,Target:req.Target,AddedAt:time.Now().UTC(),
+  DeviceID:req.DeviceID,Protocol:req.Protocol,Server:req.Server,Remote:req.Remote,Target:req.Target,Reconnect:req.Reconnect,AddedAt:time.Now().UTC(),
  }
  if err:=s.store.Update(func(c *Config)error{c.Mappings=append(c.Mappings,m);return nil});err!=nil{
   return MountResult{},fmt.Errorf("OS mapping returned successfully but its metadata could not be saved: %w",err)

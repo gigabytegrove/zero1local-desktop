@@ -29,12 +29,16 @@ type Server struct {
  updates updateControl
  nasMu sync.RWMutex
  nasSessions map[string]*nasSession
+ vault CredentialVault
+ restoreStatus map[string]string
+ reauthMu sync.Mutex
+ retryAfter map[string]time.Time
 }
 func New(store *Store,launcher func(string)error)(*Server,error){
  if store==nil{return nil,errors.New("settings store is required")}
  b:=make([]byte,32)
  if _,err:=rand.Read(b);err!=nil{return nil,err}
- return &Server{store:store,runner:OSRunner{},goos:runtime.GOOS,token:hex.EncodeToString(b),launcher:launcher,nasSessions:map[string]*nasSession{}},nil
+ return &Server{store:store,runner:OSRunner{},goos:runtime.GOOS,token:hex.EncodeToString(b),launcher:launcher,nasSessions:map[string]*nasSession{},restoreStatus:map[string]string{},retryAfter:map[string]time.Time{}},nil
 }
 func(s *Server)URL()string{return s.origin}
 func(s *Server)Start()(string,error){
@@ -45,6 +49,7 @@ func(s *Server)Start()(string,error){
  s.origin="http://"+l.Addr().String()
  s.server=&http.Server{Handler:s.Handler(),ReadHeaderTimeout:5*time.Second,IdleTimeout:35*time.Second,MaxHeaderBytes:16*1024}
  go func(){_ = s.server.Serve(l)}()
+ if s.vault!=nil{go s.restoreRememberedSessions()}
  return s.origin,nil
 }
 func(s *Server)Shutdown(ctx context.Context)error{
@@ -66,6 +71,7 @@ func(s *Server)Handler()http.Handler{
  m.HandleFunc("POST /api/add",s.add)
  m.HandleFunc("POST /api/nas/login",s.connectNAS)
  m.HandleFunc("POST /api/nas/logout",s.disconnectNAS)
+ m.HandleFunc("POST /api/nas/forget-credential",s.forgetNASCredentialAPI)
  m.HandleFunc("POST /api/nas/read",s.readNAS)
  m.HandleFunc("POST /api/nas/file-action",s.nasFileAction)
  m.HandleFunc("POST /api/nas/download",s.downloadNASFile)
@@ -113,7 +119,7 @@ func(s *Server)bad(w http.ResponseWriter,err error){
  s.writeJSON(w,400,map[string]any{"error":err.Error()})
 }
 func(s *Server)state(w http.ResponseWriter,r *http.Request){
- s.writeJSON(w,200,map[string]any{"settings":s.store.Snapshot(),"platform":s.platform(),"updater":s.UpdateStatus(),"sessions":s.nasStatuses()})
+ s.writeJSON(w,200,map[string]any{"settings":s.store.Snapshot(),"platform":s.platform(),"updater":s.UpdateStatus(),"sessions":s.nasStatuses(),"sessionRecovery":s.nasRecoveryStatuses(),"credentialVaultAvailable":s.vault!=nil})
 }
 func(s *Server)discover(w http.ResponseWriter,r *http.Request){
  ctx,cancel:=context.WithTimeout(r.Context(),28*time.Second)
@@ -143,12 +149,17 @@ func (s *Server) add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var result InstalledDevice
+	id:=deviceID(device.URL)
+	if in.Remember && s.vault==nil{s.bad(w,errors.New("secure credential storage is not available on this computer"));return}
+	if in.Remember {if err:=s.saveNASCredential(id,device.URL,in);err!=nil{s.bad(w,fmt.Errorf("could not save NAS credentials in the OS vault: %w",err));return}}
 	err = s.store.Update(func(c *Config) error {
 		var addErr error
 		result, addErr = addDevice(c, device)
+		if addErr==nil && in.Remember {c.Devices[len(c.Devices)-1].RememberSignIn=true;result.RememberSignIn=true}
 		return addErr
 	})
 	if err != nil {
+		if in.Remember && s.vault!=nil{_ = s.vault.Delete(id)}
 		session.client.CloseIdleConnections()
 		s.bad(w, err)
 		return
@@ -166,6 +177,7 @@ func (s *Server) add(w http.ResponseWriter, r *http.Request) {
 func(s *Server)remove(w http.ResponseWriter,r *http.Request){
  var in struct{ID string `json:"id"`}
  if err:=s.decode(r,&in);err!=nil{s.bad(w,err);return}
+ if d,ok:=s.store.Device(in.ID);ok&&d.RememberSignIn{if err:=s.removeNASCredential(in.ID);err!=nil{s.bad(w,err);return}}
  err:=s.store.Update(func(c *Config)error{
   for i,v:=range c.Devices{
    if v.ID!=in.ID{continue}

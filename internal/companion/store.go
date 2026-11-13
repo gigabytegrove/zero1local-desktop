@@ -20,6 +20,7 @@ type InstalledDevice struct {
  Name string `json:"name"`
  Version string `json:"version"`
  AddedAt time.Time `json:"addedAt"`
+ RememberSignIn bool `json:"rememberSignIn,omitempty"`
 }
 type Mapping struct {
  ID string `json:"id"`
@@ -28,6 +29,7 @@ type Mapping struct {
  Server string `json:"server"`
  Remote string `json:"remote"`
  Target string `json:"target"`
+ Reconnect bool `json:"reconnect,omitempty"`
  AddedAt time.Time `json:"addedAt"`
 }
 type Config struct {
