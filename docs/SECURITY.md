@@ -26,7 +26,7 @@ File mutations call only `/api/files/mkdir`, `/api/files/rename` and `/api/files
 Zero1Local's existing server authorizes all administration. Desktop code must not implement an unprivileged workaround for API ACL, login, CSRF, TOTP or NFS root squash. A host being reachable does not prove the authenticated user's access. Management sessions remain specific to each appliance and are not copied between webviews.
 
 ## Private/public repositories
-This repo is private desktop source. Zero1Local private NAS source is `gigabytegrove/zero1local-source`; public `gigabytegrove/zero1local` is package distribution. No automatic rewrite or release of any of those repositories.
+This repository (`gigabytegrove/zero1local-desktop`) is public desktop source. The separate NAS implementation source (`gigabytegrove/zero1local-source`) is private; public `gigabytegrove/zero1local` distributes NAS releases. The desktop contains no copied NAS server implementation, administrator passwords, authentication cookies, encryption keys, or private deployment addresses. No desktop release automatically modifies either NAS repository.
 
 ## Security acceptance
 Tests for malicious hostnames, credential-bearing URLs, redirects, bad TLS, huge JSON bodies, partial cancellation, OS mapping collisions, interrupted mounts, malicious export paths, and management webview origin isolation are mandatory. Windows Defender, notarization/quarantine on macOS and Linux packaging/signature checks must be exercised on real hosts.
