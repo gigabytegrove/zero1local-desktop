@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +27,9 @@ type savedNASCredential struct {
 	Username  string `json:"username"`
 	Password  string `json:"password"`
 	AllowHTTP bool   `json:"allowHTTP"`
+	SessionToken string `json:"sessionToken,omitempty"`
+	SessionExpiresAt time.Time `json:"sessionExpiresAt,omitempty"`
+	Role string `json:"role,omitempty"`
 }
 
 func (s *Server) ConfigureCredentialVault(v CredentialVault) {
@@ -31,21 +37,61 @@ func (s *Server) ConfigureCredentialVault(v CredentialVault) {
 	s.vault = v
 }
 
-func (s *Server) saveNASCredential(id, address string, in nasLoginRequest) error {
+func (s *Server) saveNASCredential(id, address string, in nasLoginRequest, sessions ...*nasSession) error {
 	if s.vault == nil {
 		return errors.New("system credential storage is unavailable; choose session-only sign-in")
 	}
 	if id != deviceID(address) || in.Username == "" || in.Password == "" {
 		return errors.New("invalid appliance credential identity")
 	}
-	body, err := json.Marshal(savedNASCredential{
-		URL: address, Username: strings.TrimSpace(in.Username),
-		Password: in.Password, AllowHTTP: in.AllowHTTP,
-	})
+	record := savedNASCredential{URL: address, Username: strings.TrimSpace(in.Username),
+   Password: in.Password, AllowHTTP: in.AllowHTTP}
+ if len(sessions)>0 && sessions[0]!=nil {
+  captureNASSessionCookie(&record,sessions[0])
+ }
+ body, err := json.Marshal(record)
 	if err != nil {
 		return err
 	}
 	return s.vault.Put(id, body)
+}
+
+func captureNASSessionCookie(record *savedNASCredential, session *nasSession) {
+ if record==nil||session==nil||session.client==nil||session.client.Jar==nil{return}
+ u,err:=url.Parse(session.origin);if err!=nil{return}
+ for _,cookie:=range session.client.Jar.Cookies(u){
+  if cookie.Name=="zero1_session"&&cookie.Value!=""{
+   record.SessionToken=cookie.Value
+   record.SessionExpiresAt=session.expiresAt
+   if record.SessionExpiresAt.IsZero(){record.SessionExpiresAt=session.since.Add(8*time.Hour)}
+   record.Role=session.role
+   return
+  }
+ }
+}
+
+func resumeNASSavedCookie(ctx context.Context, address string, record savedNASCredential)(*nasSession,error){
+ if record.SessionToken==""||record.SessionExpiresAt.IsZero()||
+   !time.Now().Before(record.SessionExpiresAt.Add(-time.Minute)){
+  return nil,errors.New("saved NAS session has expired")
+ }
+ target,err:=url.Parse(address)
+ if err!=nil{return nil,err}
+ client,err:=newNASClient()
+ if err!=nil{return nil,err}
+ client.Jar.SetCookies(target,[]*http.Cookie{{Name:"zero1_session",Value:record.SessionToken,
+  Path:"/",HttpOnly:true,Secure:target.Scheme=="https",Expires:record.SessionExpiresAt}})
+ req,err:=http.NewRequestWithContext(ctx,http.MethodGet,address+"/api/system",nil)
+ if err!=nil{return nil,err}
+ req.Header.Set("Accept","application/json")
+ req.Header.Set("User-Agent","Zero1Local-Desktop")
+ resp,err:=client.Do(req)
+ if err!=nil{return nil,err}
+ defer resp.Body.Close()
+ _,_ = io.Copy(io.Discard,io.LimitReader(resp.Body,32<<10))
+ if resp.StatusCode!=http.StatusOK{return nil,fmt.Errorf("NAS session cannot be resumed (HTTP %d)",resp.StatusCode)}
+ return &nasSession{origin:address,username:record.Username,role:record.Role,
+  since:record.SessionExpiresAt.Add(-8*time.Hour),expiresAt:record.SessionExpiresAt,client:client},nil
 }
 
 func (s *Server) removeNASCredential(id string) error {
@@ -75,13 +121,13 @@ func (s *Server) nasRecoveryStatuses() map[string]string {
 	return out
 }
 
-func (s *Server) rememberExistingNAS(id, address string, in nasLoginRequest) error {
+func (s *Server) rememberExistingNAS(id, address string, in nasLoginRequest, session *nasSession) error {
 	device, ok := s.store.Device(id)
 	if !ok || device.URL != address {
 		return errors.New("unknown appliance")
 	}
 	if in.Remember {
-		if err := s.saveNASCredential(id, address, in); err != nil {
+		if err := s.saveNASCredential(id, address, in, session); err != nil {
 			return fmt.Errorf("could not store saved sign-in in the system credential vault: %w", err)
 		}
 	} else if device.RememberSignIn {
@@ -172,16 +218,28 @@ func (s *Server) renewRememberedNAS(ctx context.Context, id string, expected *na
 		s.setNASRecoveryStatus(id, "Saved sign-in needs to be set up again.")
 		return nil, errors.New("saved NAS identity does not match this appliance")
 	}
-	login := nasLoginRequest{Username: credentials.Username, Password: credentials.Password, AllowHTTP: credentials.AllowHTTP}
-	updated, err := s.loginNAS(ctx, device.URL, login)
-	if err != nil {
+	var updated *nasSession
+ // Resume an already-MFA-approved NAS session before reauthenticating.
+ if credentials.SessionToken!=""&&time.Now().Before(credentials.SessionExpiresAt.Add(-time.Minute)){
+  updated,err=resumeNASSavedCookie(ctx,device.URL,credentials)
+ }
+ if updated==nil {
+  login := nasLoginRequest{Username:credentials.Username,Password:credentials.Password,AllowHTTP:credentials.AllowHTTP}
+  updated,err=s.loginNAS(ctx,device.URL,login)
+ }
+ if err != nil {
 		s.nasMu.Lock()
 		s.retryAfter[id] = time.Now().Add(2 * time.Minute)
 		s.restoreStatus[id] = "Sign in again. Your NAS may require a new verification code."
 		s.nasMu.Unlock()
 		return nil, err
 	}
-	s.nasMu.Lock()
+	// Refresh the vaulted cookie after a successful reauthentication.
+ captureNASSessionCookie(&credentials,updated)
+ if refreshed,marshalErr:=json.Marshal(credentials);marshalErr==nil{
+  _ = s.vault.Put(id,refreshed)
+ }
+ s.nasMu.Lock()
 	if previous := s.nasSessions[id]; previous != nil {
 		previous.client.CloseIdleConnections()
 	}
@@ -196,7 +254,7 @@ func (s *Server) renewRememberedNAS(ctx context.Context, id string, expected *na
 // from a NAS reboot that invalidates a cookie when a saved login is enabled.
 func (s *Server) activeNASSession(ctx context.Context, id string) (*nasSession, bool) {
 	current, ok := s.getNASSession(id)
-	if ok && time.Since(current.since) < 7*time.Hour+45*time.Minute {
+	if ok && (current.expiresAt.IsZero()&&time.Since(current.since)<7*time.Hour+45*time.Minute || !current.expiresAt.IsZero()&&time.Until(current.expiresAt)>15*time.Minute) {
 		return current, true
 	}
 	device, exists := s.store.Device(id)

@@ -27,6 +27,7 @@ type nasSession struct {
 	username string
 	role     string
 	since    time.Time
+	expiresAt time.Time
 	client   *http.Client
 }
 
@@ -218,7 +219,7 @@ func (s *Server) loginNAS(ctx context.Context, origin string, in nasLoginRequest
 	}
 	return &nasSession{
 		origin: normalized, username: result.Username, role: result.Role,
-		since: time.Now().UTC(), client: client,
+		since: time.Now().UTC(), expiresAt: time.Now().UTC().Add(8*time.Hour), client: client,
 	}, nil
 }
 
@@ -251,7 +252,7 @@ func (s *Server) connectNAS(w http.ResponseWriter, r *http.Request) {
 		s.bad(w, err)
 		return
 	}
-	if err:=s.rememberExistingNAS(device.ID,device.URL,in);err!=nil {session.client.CloseIdleConnections();s.bad(w,err);return}
+	if err:=s.rememberExistingNAS(device.ID,device.URL,in,session);err!=nil {session.client.CloseIdleConnections();s.bad(w,err);return}
 	s.nasMu.Lock()
 	if old := s.nasSessions[device.ID]; old != nil {
 		old.client.CloseIdleConnections()

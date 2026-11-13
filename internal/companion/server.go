@@ -152,7 +152,7 @@ func (s *Server) add(w http.ResponseWriter, r *http.Request) {
 	id:=deviceID(device.URL)
 	if _,exists:=s.store.Device(id);exists{s.bad(w,errors.New("this NAS is already saved; select it and sign in"));return}
 	if in.Remember && s.vault==nil{s.bad(w,errors.New("secure credential storage is not available on this computer"));return}
-	if in.Remember {if err:=s.saveNASCredential(id,device.URL,in);err!=nil{s.bad(w,fmt.Errorf("could not save NAS credentials in the OS vault: %w",err));return}}
+	if in.Remember {if err:=s.saveNASCredential(id,device.URL,in,session);err!=nil{s.bad(w,fmt.Errorf("could not save NAS credentials in the OS vault: %w",err));return}}
 	err = s.store.Update(func(c *Config) error {
 		var addErr error
 		result, addErr = addDevice(c, device)
