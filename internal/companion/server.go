@@ -13,6 +13,7 @@ import(
  "net/http"
  "runtime"
  "strings"
+ "sync"
  "time"
 )
 
@@ -26,12 +27,14 @@ type Server struct {
  server *http.Server
  origin string
  updates updateControl
+ nasMu sync.RWMutex
+ nasSessions map[string]*nasSession
 }
 func New(store *Store,launcher func(string)error)(*Server,error){
  if store==nil{return nil,errors.New("settings store is required")}
  b:=make([]byte,32)
  if _,err:=rand.Read(b);err!=nil{return nil,err}
- return &Server{store:store,runner:OSRunner{},goos:runtime.GOOS,token:hex.EncodeToString(b),launcher:launcher},nil
+ return &Server{store:store,runner:OSRunner{},goos:runtime.GOOS,token:hex.EncodeToString(b),launcher:launcher,nasSessions:map[string]*nasSession{}},nil
 }
 func(s *Server)URL()string{return s.origin}
 func(s *Server)Start()(string,error){
@@ -46,6 +49,7 @@ func(s *Server)Start()(string,error){
 }
 func(s *Server)Shutdown(ctx context.Context)error{
  s.stopUpdater()
+ s.clearNASSessions()
  if s.server==nil{return nil}
  return s.server.Shutdown(ctx)
 }
@@ -60,6 +64,9 @@ func(s *Server)Handler()http.Handler{
  m.HandleFunc("GET /api/state",s.state)
  m.HandleFunc("POST /api/discover",s.discover)
  m.HandleFunc("POST /api/add",s.add)
+ m.HandleFunc("POST /api/nas/login",s.connectNAS)
+ m.HandleFunc("POST /api/nas/logout",s.disconnectNAS)
+ m.HandleFunc("POST /api/nas/read",s.readNAS)
  m.HandleFunc("POST /api/remove",s.remove)
  m.HandleFunc("POST /api/theme",s.theme)
  m.HandleFunc("POST /api/open",s.open)
@@ -103,7 +110,7 @@ func(s *Server)bad(w http.ResponseWriter,err error){
  s.writeJSON(w,400,map[string]any{"error":err.Error()})
 }
 func(s *Server)state(w http.ResponseWriter,r *http.Request){
- s.writeJSON(w,200,map[string]any{"settings":s.store.Snapshot(),"platform":s.platform(),"updater":s.UpdateStatus()})
+ s.writeJSON(w,200,map[string]any{"settings":s.store.Snapshot(),"platform":s.platform(),"updater":s.UpdateStatus(),"sessions":s.nasStatuses()})
 }
 func(s *Server)discover(w http.ResponseWriter,r *http.Request){
  ctx,cancel:=context.WithTimeout(r.Context(),28*time.Second)
@@ -112,16 +119,47 @@ func(s *Server)discover(w http.ResponseWriter,r *http.Request){
  if ds==nil{ds=[]appliance.Device{}}
  s.writeJSON(w,200,map[string]any{"devices":ds})
 }
-func(s *Server)add(w http.ResponseWriter,r *http.Request){
- var in struct{URL string `json:"url"`}
- if err:=s.decode(r,&in);err!=nil{s.bad(w,err);return}
- d,err:=s.probe(r.Context(),in.URL)
- if err!=nil{s.bad(w,err);return}
- var result InstalledDevice
- err=s.store.Update(func(c *Config)error{v,e:=addDevice(c,d);result=v;return e})
- if err!=nil{s.bad(w,err);return}
- s.writeJSON(w,201,result)
+// Appliance onboarding verifies real NAS administrator credentials and MFA
+// before writing the device to the local device inventory.
+func (s *Server) add(w http.ResponseWriter, r *http.Request) {
+	var in nasLoginRequest
+	if err := s.decode(r, &in); err != nil {
+		s.bad(w, err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 14*time.Second)
+	defer cancel()
+	device, err := s.probe(ctx, in.URL)
+	if err != nil {
+		s.bad(w, err)
+		return
+	}
+	session, err := s.loginNAS(ctx, device.URL, in)
+	if err != nil {
+		s.bad(w, err)
+		return
+	}
+	var result InstalledDevice
+	err = s.store.Update(func(c *Config) error {
+		var addErr error
+		result, addErr = addDevice(c, device)
+		return addErr
+	})
+	if err != nil {
+		session.client.CloseIdleConnections()
+		s.bad(w, err)
+		return
+	}
+	s.nasMu.Lock()
+	s.nasSessions[result.ID] = session
+	s.nasMu.Unlock()
+	s.writeJSON(w, http.StatusCreated, map[string]any{
+		"id": result.ID, "url": result.URL, "name": result.Name,
+		"version": result.Version, "username": session.username,
+		"role": session.role, "connected": true,
+	})
 }
+
 func(s *Server)remove(w http.ResponseWriter,r *http.Request){
  var in struct{ID string `json:"id"`}
  if err:=s.decode(r,&in);err!=nil{s.bad(w,err);return}
@@ -135,6 +173,7 @@ func(s *Server)remove(w http.ResponseWriter,r *http.Request){
   return errors.New("unknown appliance")
  })
  if err!=nil{s.bad(w,err);return}
+ s.dropNASSession(in.ID)
  s.writeJSON(w,200,map[string]any{"ok":true})
 }
 func(s *Server)theme(w http.ResponseWriter,r *http.Request){
