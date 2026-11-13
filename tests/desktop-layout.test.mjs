@@ -67,7 +67,6 @@ async function harness(devices=[]){
       })};
       throw new Error("Unexpected test request: "+path);
     },
-    matchMedia:()=>({matches:true,addEventListener(){}}),
     window:{location:{reload(){}},setTimeout(){},addEventListener(){},URL:{createObjectURL(){return ""}}},
     setTimeout(){},clearTimeout(){},URL,Event:class{constructor(type){this.type=type}}
   };

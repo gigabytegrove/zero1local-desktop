@@ -57,7 +57,7 @@ See `docs/releases/v0.1.0-beta.1.md` and `docs/releases/v0.1.0-beta.2.md` for re
 - File transfers over 256 MiB and desktop operations that require unverified management mutation contracts must continue to use the full Zero1Local console. Never imply all NAS features have been reproduced in the native wrapper.
 
 ## Beta 5 UI acceptance
-- Exact source commit is tagged \`v0.1.0-beta.5\` and embedded in both native executables via \`-X main.currentVersion=0.1.0-beta.5\`.
-- Existing Beta 4 assets are immutable; publish Beta 5 only after native Go tests and \`node --test tests/frontend-startup.test.mjs tests/desktop-layout.test.mjs\`.
+- Exact source commit is tagged `v0.1.0-beta.5` and embedded in both native executables via `-X main.currentVersion=0.1.0-beta.5`.
+- Existing Beta 4 assets are immutable; publish Beta 5 only after native Go tests and `node --test tests/frontend-startup.test.mjs tests/desktop-layout.test.mjs`.
 - Validate keyboard disclosure behavior, the source-colored light/dark themes, NAS selector, full per-appliance sign-in, file list, share mapping, storage gauge and correct empty/loading/error states.
 - Screenshots and 929-frame audit are source evidence, **not** live acceptance of the newly rendered Beta 5 binaries.

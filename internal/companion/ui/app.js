@@ -690,7 +690,7 @@ function managementPage(view){
   else{
    const items=rowsFromData(data,meta.resource);
    if(items.length)root.append(section("NAS inventory",recordsTable(items)));
-   const summary=Object.entries(data).filter(([,v])=>v!==null&&!Array.isArray(v)&&typeof v!=="object"&&typeof v!=="string"||typeof v==="string"&&v.length<180).slice(0,12);
+   const summary=Object.entries(data).filter(([,v])=>v!==null&&v!==undefined&&!Array.isArray(v)&&(typeof v==="string"?v.length<180:typeof v!=="object")).slice(0,12);
    if(summary.length)root.append(section("Details",node("dl",{class:"info-list"},
     ...summary.map(([k,v])=>infoLine(humanize(k),v)))));
    if(!items.length&&!summary.length)root.append(node("div",{class:"quiet-empty",text:"No additional data was reported by the NAS."}));
