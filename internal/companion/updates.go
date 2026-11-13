@@ -52,7 +52,7 @@ func (s *Server) ConfigureUpdater(version,channel string,portableInstall func(co
  defer s.updates.mu.Unlock()
  s.updates.portableInstall=portableInstall
  mode:="unavailable"
- if portableInstall!=nil{mode="portable"}
+ if portableInstall!=nil{mode="portable-"+s.goos+"-"+runtime.GOARCH}
  if s.updates.debianInstall!=nil{mode="debian"}
  supported:=version!=""&&version!="development preview"&&mode!="unavailable"
  s.updates.state=UpdateStatus{
@@ -142,7 +142,7 @@ func (s *Server) StartUpdateInstall()error{
  if !s.updates.state.Available||s.updates.selection.release.TagName==""{s.updates.mu.Unlock();return errors.New("check for a newer release before installing")}
  mode:=s.updates.state.InstallMode
  portable,debian:=s.updates.portableInstall,s.updates.debianInstall
- if (mode=="debian"&&debian==nil)||(mode=="portable"&&portable==nil){s.updates.mu.Unlock();return errors.New("no installer is configured for this installation")}
+ if (mode=="debian"&&debian==nil)||(strings.HasPrefix(mode,"portable-")&&portable==nil){s.updates.mu.Unlock();return errors.New("no installer is configured for this installation")}
  selected:=s.updates.selection
  ctx,cancel:=context.WithTimeout(context.Background(),18*time.Minute)
  s.updates.cancel=cancel
