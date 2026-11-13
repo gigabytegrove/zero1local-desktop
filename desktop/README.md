@@ -53,6 +53,16 @@ go build -trimpath -o zero1local-desktop .
 
 Raw macOS executables are not notarized .app bundles; installer packaging and signing still need testing.
 
+## Zero1Local Desktop Beta 4 workflows
+
+The desktop prompts for the NAS administrator username and password when adding an appliance, with a separate TOTP field when two-factor authentication is enabled. A new appliance is saved only after Zero1Local verifies that login. Signed-in NAS sessions are independent for each appliance and are not preserved when the desktop quits.
+
+When using a plain HTTP NAS address, the app requires an explicit warning acknowledgement because the password would travel over the network unencrypted. HTTPS uses normal certificate validation. No administrator password or NAS session cookie is written to the desktop settings file.
+
+The left navigation includes File Manager, Shared Folders, Mapped Drives, and authenticated live sections for System, Storage, Network, Containers & Docker, Hardware, Tasks, Users & Groups, Services, Backups, Protection Plans and Notifications. The File Manager supports NAS share-rooted browsing, folder creation, file upload/download, rename and Move to Recycle Bin (transfer limit 256 MiB).
+
+**Important:** the NAS browser console remains the complete source of advanced administration. The desktop's NAS login and the system browser's NAS login are isolated sessions, so opening the full console can prompt for login again. SMB and NFS mounts use the operating system's distinct share credentials and access permissions.
+
 ## Boundaries
 
 The Go companion binds to 127.0.0.1 with a randomized port and enforces origin, host, token, and CSP checks.
