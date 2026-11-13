@@ -286,6 +286,7 @@ function inventoryPage(){
 }
 function selectNASShare(protocol,remote){
  const p=document.querySelector("#protocol"),r=document.querySelector("#remote");
+ const details=document.querySelector(".mapping-details");if(details)details.open=true;
  if(!p||!r)return;
  p.value=protocol;
  p.dispatchEvent(new Event("change",{bubbles:true}));
