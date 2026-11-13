@@ -103,7 +103,7 @@ function homePage(){
  const d=selected(),maps=S.settings.mappings;
  const root=node("div",{},heading("Your Zero1Local workspace","Manage multiple Zero1Local appliances, files, shares and health from one computer."),
  node("div",{class:"health-strip"},
-  ...[[S.settings.devices.length,"Saved appliances"],[maps.length,"Saved mappings"],["Local","No cloud account"]].map(([value,name])=>
+  ...[[S.settings.devices.length,"Saved appliances"],[maps.length,"Saved mappings"],[Object.keys(S.sessions).length,"Administrator sessions"]].map(([value,name])=>
    node("div",{class:"health-item"},node("strong",{text:String(value)}),node("span",{text:name}))
  )));
  if(!d){
@@ -137,9 +137,11 @@ function devicesPage(){
  if(S.settings.devices.length)root.append(section("Saved installations",table(["Appliance","Version","Status","Actions"],
  S.settings.devices.map(d=>[
   primary(d.name,d.url),node("span",{text:d.version||"Unknown"}),
-  node("span",{class:"state-label good",text:"Saved endpoint"}),
+  node("span",{class:"state-label "+(S.sessions[d.id]?"good":"warn"),text:S.sessions[d.id]?"Signed in: "+S.sessions[d.id].username:"Sign-in required"}),
   node("div",{class:"actions"},
-   button("Select",()=>choose(d.id)),button("Manage",()=>openDevice(d.id)),
+   button("Select",()=>choose(d.id)),
+   S.sessions[d.id]?button("Sign out",()=>disconnectDevice(d.id)):button("Sign in",()=>credentialDialog(d.id)),
+   button("Manage",()=>openDevice(d.id)),
    button("Forget",()=>forget(d),"btn btn-danger"))
  ]))));
  else root.append(empty("▣","No appliances yet","Scan your network or enter the NAS management address.",button("Scan network",discover,"btn btn-primary")));
