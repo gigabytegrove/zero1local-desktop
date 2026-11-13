@@ -65,7 +65,7 @@ func run() error {
  svc.ConfigureUpdater(currentVersion, updateChannel, checkForUpdates, unavailable)
  window=app.Window.NewWithOptions(application.WebviewWindowOptions{
   Name:"desktop-workspace", Title:"Zero1Local Desktop",
-  Width:1180,Height:790,MinWidth:660,MinHeight:480,
+  Width:1320,Height:800,MinWidth:860,MinHeight:560,
   BackgroundColour:application.NewRGB(242,245,248),
   URL:localURL,
  })

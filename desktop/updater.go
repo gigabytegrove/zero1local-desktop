@@ -23,7 +23,7 @@ const (
 // currentVersion is set to the release's version (without v) by -ldflags.
 // Always update this fallback with each source release; a fresh dev build
 // otherwise risks reporting a version different from its actual code.
-var currentVersion = "0.1.0-beta.4"
+var currentVersion = "0.1.0-beta.5"
 
 // updateArtifactName is intentionally strict. The GitHub release also carries
 // .deb installers and user-facing ZIPs, neither of which should be passed to

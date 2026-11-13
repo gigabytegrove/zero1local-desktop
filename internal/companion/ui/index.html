@@ -11,7 +11,9 @@
 <div class="app-frame">
 <aside class="sidebar" aria-label="Primary navigation">
  <div class="side-brand"><img src="/brand-light.png" alt="Zero1Local" width="176" height="42"></div>
- <div class="side-product">Desktop Companion</div>
+ <div class="side-product">Desktop <span class="product-tag">Companion</span></div>
+ <div class="rail-label devices-label">Appliances</div>
+ <div class="device-rail" id="device-rail"><span class="rail-empty">No appliances saved</span></div>
  <div class="rail-label">Workspace</div>
  <nav class="application-rail" aria-label="Desktop sections">
   <button class="app-nav-item active" type="button" data-nav="home"><span class="nav-symbol" aria-hidden="true">⌂</span> Overview</button>
@@ -19,7 +21,9 @@
   <button class="app-nav-item" type="button" data-nav="files"><span class="nav-symbol" aria-hidden="true">▦</span> File manager</button>
   <button class="app-nav-item" type="button" data-nav="shares"><span class="nav-symbol" aria-hidden="true">▤</span> Shared folders</button>
   <button class="app-nav-item" type="button" data-nav="mounts"><span class="nav-symbol" aria-hidden="true">⌘</span> Mapped drives</button>
-  <div class="rail-label">NAS management</div>
+  <details class="nav-management" id="nav-management">
+   <summary>NAS management <span aria-hidden="true" class="chevron">⌄</span></summary>
+   <div class="nav-management-links">
   <button class="app-nav-item" type="button" data-nav="system"><span class="nav-symbol" aria-hidden="true">⌁</span> System overview</button>
   <button class="app-nav-item" type="button" data-nav="storage"><span class="nav-symbol" aria-hidden="true">◫</span> Storage &amp; disks</button>
   <button class="app-nav-item" type="button" data-nav="network"><span class="nav-symbol" aria-hidden="true">◎</span> Network</button>
@@ -31,14 +35,18 @@
   <button class="app-nav-item" type="button" data-nav="backups"><span class="nav-symbol" aria-hidden="true">⤴</span> Backups</button>
   <button class="app-nav-item" type="button" data-nav="protection"><span class="nav-symbol" aria-hidden="true">◇</span> Protection plans</button>
   <button class="app-nav-item" type="button" data-nav="activity"><span class="nav-symbol" aria-hidden="true">◉</span> Notifications</button>
-  <button class="app-nav-item" type="button" data-nav="settings"><span class="nav-symbol" aria-hidden="true">⚙</span> Settings</button>
+   </div>
+  </details>
+  <button class="app-nav-item nav-settings" type="button" data-nav="settings"><span class="nav-symbol" aria-hidden="true">⚙</span> Settings</button>
  </nav>
- <div class="rail-label devices-label">Connected appliances</div>
- <div class="device-rail" id="device-rail"><span class="rail-empty">No appliances saved</span></div>
  <div class="side-footer"><span class="connection-dot"></span><span>Local desktop application<small>Windows · Linux · macOS</small></span></div>
 </aside>
 <div class="workspace">
- <header class="topbar"><div class="topbar-identity"><strong id="top-title">Overview</strong><small id="top-subtitle">Zero1Local on this computer</small></div><div class="top-actions"><button class="btn btn-quiet" id="btn-discover" type="button">Scan network</button><button class="btn btn-primary" id="btn-add" type="button">+ Add appliance</button></div></header>
+ <header class="topbar">
+  <div class="topbar-identity"><strong id="top-title">Overview</strong><small id="top-subtitle">Zero1Local on this computer</small></div>
+  <div class="topbar-appliance"><label for="appliance-switcher">Current appliance</label><select id="appliance-switcher" aria-label="Switch Zero1Local appliance"></select><span class="topbar-presence" id="topbar-presence" role="status">No NAS selected</span></div>
+  <div class="top-actions"><button class="btn btn-quiet" id="btn-discover" type="button">Scan network</button><button class="btn btn-primary" id="btn-add" type="button">+ Add NAS</button></div>
+ </header>
  <main id="main" class="page" tabindex="-1"><div class="loading">Loading your desktop workspace…</div><noscript>JavaScript is required to use the Zero1Local Desktop workspace.</noscript></main>
 </div></div>
 <dialog id="modal" aria-labelledby="modal-title"><form method="dialog" id="modal-form"><div class="dialog-head"><h2 id="modal-title">Add appliance</h2><button class="icon-button" id="modal-close" aria-label="Close dialog" value="cancel">×</button></div><div id="modal-body"></div><div class="dialog-actions"><button class="btn btn-quiet" value="cancel">Cancel</button><button class="btn btn-primary" id="modal-submit" value="confirm">Continue</button></div></form></dialog>

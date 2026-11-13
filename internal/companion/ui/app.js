@@ -53,7 +53,7 @@ function theme(){
  document.documentElement.dataset.theme=S.settings.theme==="system"?(systemTheme.matches?"dark":"light"):S.settings.theme;
 }
 systemTheme.addEventListener("change",()=>{if(S.settings.theme==="system")theme()});
-function choose(id){S.selected=id;S.inventory=null;S.view="home";render()}
+function choose(id){S.selected=id;S.inventory=null;S.view="home";render();main.focus({preventScroll:true})}
 function heading(title,text){return node("div",{class:"page-heading"},node("div",{},node("h1",{text:title}),node("p",{text})))}
 function section(title,content){return node("section",{class:"section"},node("div",{class:"section-title"},node("h2",{text:title})),content)}
 function primary(title,subtitle){return node("div",{},node("strong",{text:title}),node("small",{text:subtitle}))}
@@ -88,6 +88,18 @@ function render(){
  document.querySelector("#top-title").textContent=titles[S.view];
  document.querySelector("#top-subtitle").textContent=selected()?.name||"Zero1Local on this computer";
  document.querySelector("#btn-discover").disabled=S.busy;
+ const manage=document.querySelector("#nav-management");
+ if(manage&&["system","storage","network","docker","hardware","tasks","users","services","backups","protection","activity"].includes(S.view))manage.open=true;
+ const switcher=document.querySelector("#appliance-switcher");
+ if(switcher){
+  switcher.replaceChildren(...(S.settings.devices.length?S.settings.devices.map(d=>node("option",{value:d.id,text:d.name})):
+   [node("option",{value:"",text:"No appliance connected"})]));
+  switcher.value=S.selected||"";
+  switcher.disabled=S.busy||S.settings.devices.length===0;
+ }
+ const presence=document.querySelector("#topbar-presence");
+ if(presence){const d=selected(),session=d&&S.sessions[d.id];presence.textContent=!d?"No NAS selected":session?"● Signed in":"○ Sign-in required";presence.className="topbar-presence "+(session?"online":"offline")}
+ document.querySelector("#btn-discover").hidden=!["home","devices"].includes(S.view);
  document.querySelector("#btn-add").disabled=S.busy;
  switch(S.view){
  case "devices":main.replaceChildren(devicesPage());break;
@@ -304,7 +316,7 @@ function dialog(title,body,onConfirm,buttonText="Continue"){
  };
  body.querySelector("input")?.focus();
 }
-function addDialog(address=""){credentialDialog("",address)}
+function addDialog(address=""){credentialDialog("",typeof address==="string"?address:"")}
 function credentialDialog(id="",address=""){
  const d=id?getDevice(id):null;
  const content=node("div",{class:"signin-form"},
@@ -700,8 +712,9 @@ async function downloadNASFile(d,item){
 }
 
 navigation.forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.nav)));
-document.querySelector("#btn-add").addEventListener("click",addDialog);
+document.querySelector("#btn-add").addEventListener("click",()=>addDialog());
 document.querySelector("#btn-discover").addEventListener("click",discover);
+ document.querySelector("#appliance-switcher")?.addEventListener("change",e=>{if(e.target.value)choose(e.target.value)});
 reload().catch(e=>{
  main.replaceChildren(empty("!","Desktop service unavailable",e.message,
   button("Retry connection",()=>reload().catch(err=>flash(err.message||"Unable to reconnect")),"btn btn-primary",false)));
