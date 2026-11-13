@@ -104,3 +104,9 @@ dialog::backdrop{background:#071a3880}
 @media(max-width:980px){.detail-grid{grid-template-columns:1fr}.topbar{padding:0 17px}.page{padding:24px 20px}.list-table th:nth-child(3),.list-table td:nth-child(3){display:none}}
 @media(max-width:700px){.app-frame{display:block}.sidebar{position:relative;top:auto;height:auto;max-height:none}.side-brand{min-height:56px;height:56px}.side-footer,.device-rail,.devices-label,.side-product{display:none}.application-rail{display:flex;overflow-x:auto;padding:7px 10px}.app-nav-item{width:auto;min-height:40px;white-space:nowrap}.topbar{position:relative;flex-wrap:wrap;height:auto;min-height:64px;padding:12px 15px}.page{padding:24px 15px}.page-heading{flex-direction:column}.health-strip{grid-template-columns:1fr}.health-item{border-right:0;border-bottom:1px solid var(--line)}.health-item:last-child{border-bottom:0}.fields{grid-template-columns:1fr}.facts{grid-template-columns:1fr;row-gap:3px}.facts dd{margin-bottom:11px}.list-table th:nth-child(2),.list-table td:nth-child(2){display:none}.list-table td{padding:11px}.detail-main,.detail-aside{padding:19px}.top-actions{width:100%}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+
+/* Startup failures are a first-class app state, not an indefinite spinner. */
+.startup-error{max-width:620px;padding:32px 0}
+.startup-error h1{font-size:28px;margin-bottom:12px}
+.startup-error p{color:var(--muted);line-height:1.6}
+.startup-error .startup-detail{padding:12px 14px;background:var(--bad-soft);color:var(--bad);border-left:3px solid var(--bad);overflow-wrap:anywhere;margin:15px 0 24px}

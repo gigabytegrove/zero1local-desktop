@@ -54,6 +54,7 @@ func(s *Server)Handler()http.Handler{
  m.HandleFunc("GET /",s.handleUI)
  m.HandleFunc("GET /app.css",s.handleCSS)
  m.HandleFunc("GET /app.js",s.handleJS)
+ m.HandleFunc("GET /startup.js",s.handleStartupJS)
  m.HandleFunc("GET /brand-light.png",s.handleBrandLight)
  m.HandleFunc("GET /brand-dark.png",s.handleBrandDark)
  m.HandleFunc("GET /api/state",s.state)

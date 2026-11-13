@@ -23,6 +23,7 @@ func serveAsset(w http.ResponseWriter,path,kind string){
 }
 func(s *Server)handleCSS(w http.ResponseWriter,r *http.Request){serveAsset(w,"ui/app.css","text/css; charset=utf-8")}
 func(s *Server)handleJS(w http.ResponseWriter,r *http.Request){serveAsset(w,"ui/app.js","text/javascript; charset=utf-8")}
+func(s *Server)handleStartupJS(w http.ResponseWriter,r *http.Request){serveAsset(w,"ui/startup.js","text/javascript; charset=utf-8")}
 func(s *Server)handleBrandLight(w http.ResponseWriter,r *http.Request){serveAsset(w,"ui/brand-light.png","image/png")}
 func(s *Server)handleBrandDark(w http.ResponseWriter,r *http.Request){serveAsset(w,"ui/brand-dark.png","image/png")}
 

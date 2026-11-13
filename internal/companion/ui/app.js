@@ -58,10 +58,9 @@ function heading(title,text){return node("div",{class:"page-heading"},node("div"
 function section(title,content){return node("section",{class:"section"},node("div",{class:"section-title"},node("h2",{text:title})),content)}
 function primary(title,subtitle){return node("div",{},node("strong",{text:title}),node("small",{text:subtitle}))}
 function table(head,rows){
- return node("table",{class:"list-table"},
-  node("thead",{},node("tr",{},...head.map(x=>node("th",{scope:"col",text:x})))),
-  node("tbody",{},...rows.map(row=>node("tr",{},...row.map(v=>node("td",{},v))))
- );
+ const headingRow=node("tr",{},...head.map(label=>node("th",{scope:"col",text:label})));
+ const bodyRows=rows.map(row=>node("tr",{},...row.map(cell=>node("td",{},cell))));
+ return node("table",{class:"list-table"},node("thead",{},headingRow),node("tbody",{},...bodyRows));
 }
 function empty(symbol,title,description,action){
  return node("div",{class:"empty"},node("div",{class:"empty-symbol",text:symbol,"aria-hidden":"true"}),
@@ -343,4 +342,8 @@ async function loadInventory(){
 navigation.forEach(b=>b.addEventListener("click",()=>{S.view=b.dataset.nav;render();main.focus({preventScroll:true})}));
 document.querySelector("#btn-add").addEventListener("click",addDialog);
 document.querySelector("#btn-discover").addEventListener("click",discover);
-reload().catch(e=>{main.replaceChildren(empty("!","Desktop service unavailable",e.message));flash(e.message)});
+reload().catch(e=>{
+ main.replaceChildren(empty("!","Desktop service unavailable",e.message,
+  button("Retry connection",()=>reload().catch(err=>flash(err.message||"Unable to reconnect")),"btn btn-primary",false)));
+ flash(e.message);
+});
