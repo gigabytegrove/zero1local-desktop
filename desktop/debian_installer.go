@@ -31,9 +31,44 @@ var sourceInDebAsset=regexp.MustCompile(`^Zero1Local-Desktop-([0-9a-f]{12})-linu
 func expectedDebianPackageVersion(releaseVersion,assetName string)(string,error){
  name:=sourceInDebAsset.FindStringSubmatch(assetName)
  if name==nil{return "",errors.New("unexpected Debian asset filename")}
- m:=regexp.MustCompile(`^(\d+\.\d+\.\d+)-(alpha|beta|rc)\.(\d+)$`).FindStringSubmatch(releaseVersion)
- if m==nil{return "",errors.New("invalid Debian prerelease version")}
- return m[1]+"~"+m[2]+m[3]+"+git"+name[1],nil
+ m:=regexp.MustCompile(`^(\d+\.\d+\.\d+)(?:-(alpha|beta|rc)\.(\d+))?package main
+
+import (
+ "context"
+ "errors"
+ "fmt"
+ "os"
+ "os/exec"
+ "path/filepath"
+ "regexp"
+ "runtime"
+ "strings"
+ "time"
+
+ "github.com/wailsapp/wails/v3/pkg/application"
+)
+
+// A Debian install is recognized by the actual running executable and dpkg's
+// installation records, never by an arbitrary file-system path chosen by UI.
+func nativeDebianInstall()bool{
+ if runtime.GOOS!="linux"||runtime.GOARCH!="amd64"{return false}
+ executable,err:=os.Executable()
+ if err!=nil{return false}
+ resolved,err:=filepath.EvalSymlinks(executable)
+ if err!=nil{return false}
+ if resolved!="/usr/bin/zero1local-desktop"{return false}
+ out,err:=exec.Command("/usr/bin/dpkg-query","-W","-f=${Status}","zero1local-desktop").Output()
+ return err==nil && strings.TrimSpace(string(out))=="install ok installed"
+}
+var sourceInDebAsset=regexp.MustCompile(`^Zero1Local-Desktop-([0-9a-f]{12})-linux-amd64\.deb$`)
+func expectedDebianPackageVersion(releaseVersion,assetName string)(string,error){
+ name:=sourceInDebAsset.FindStringSubmatch(assetName)
+ if name==nil{return "",errors.New("unexpected Debian asset filename")}
+ ).FindStringSubmatch(releaseVersion)
+ if m==nil{return "",errors.New("invalid Debian release version")}
+ debianVersion:=m[1]
+ if m[2]!=""{debianVersion+="~"+m[2]+m[3]}
+ return debianVersion+"+git"+name[1],nil
 }
 // dpkg-deb -f with field names emits "Package: x" lines, not bare values.
 func parseDebianMetadata(raw string)map[string]string{

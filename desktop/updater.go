@@ -56,7 +56,7 @@ func writableInstallDirectory(goos, executable string) error {
 	if goos == "linux" && (strings.HasPrefix(executable, "/usr/bin/") ||
 		strings.HasPrefix(executable, "/usr/local/bin/") ||
 		strings.HasPrefix(executable, "/opt/")) {
-		return errors.New("system-installed Linux application: Desktop can install verified Debian updates with administrator approval")
+		return errors.New("system-installed Linux application: Desktop updates through the Debian package manager with administrator approval")
 	}
 	f, err := os.CreateTemp(filepath.Dir(executable), ".zero1local-updater-permission-*")
 	if err != nil {
