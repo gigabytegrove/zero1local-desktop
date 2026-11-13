@@ -207,6 +207,7 @@ func TestNASAutomaticLoginDoesNotBypassMFA(t *testing.T) {
 type persistenceRunner struct {
 	calls [][]string
 }
+
 func (r *persistenceRunner) Run(_ context.Context, name string, args ...string) (string, error) {
 	r.calls = append(r.calls, append([]string{name}, args...))
 	return "", nil
@@ -257,10 +258,14 @@ func TestNASRememberedSessionRenewalThrottledAfterFailure(t *testing.T) {
 	if err := svc.store.Update(func(c *Config) error {
 		c.Devices = append(c.Devices, InstalledDevice{ID: id, URL: "http://127.0.0.1", RememberSignIn: true})
 		return nil
-	}); err != nil { t.Fatal(err) }
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if err := svc.saveNASCredential(id, "http://127.0.0.1", nasLoginRequest{
 		Username: "root", Password: "password", AllowHTTP: true,
-	}); err != nil { t.Fatal(err) }
+	}); err != nil {
+		t.Fatal(err)
+	}
 	svc.nasMu.Lock()
 	svc.retryAfter[id] = time.Now().Add(time.Minute)
 	svc.nasMu.Unlock()
@@ -269,7 +274,6 @@ func TestNASRememberedSessionRenewalThrottledAfterFailure(t *testing.T) {
 		t.Fatalf("renewal cooldown not enforced: %v", err)
 	}
 }
-
 
 func TestMFAApprovedSavedSessionResumesWithoutSecondLogin(t *testing.T) {
 	var loginCalls atomic.Int32
@@ -345,7 +349,6 @@ func TestMFAApprovedSavedSessionResumesWithoutSecondLogin(t *testing.T) {
 		t.Fatal("valid saved MFA session did not restore")
 	}
 }
-
 
 func TestIndependentNASRenewalsDoNotBlockEachOther(t *testing.T) {
 	svc, err := New(tempStore(t), nil)
