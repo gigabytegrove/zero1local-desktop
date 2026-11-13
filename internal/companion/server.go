@@ -32,13 +32,14 @@ type Server struct {
  vault CredentialVault
  restoreStatus map[string]string
  reauthMu sync.Mutex
+ renewLocks map[string]*sync.Mutex
  retryAfter map[string]time.Time
 }
 func New(store *Store,launcher func(string)error)(*Server,error){
  if store==nil{return nil,errors.New("settings store is required")}
  b:=make([]byte,32)
  if _,err:=rand.Read(b);err!=nil{return nil,err}
- return &Server{store:store,runner:OSRunner{},goos:runtime.GOOS,token:hex.EncodeToString(b),launcher:launcher,nasSessions:map[string]*nasSession{},restoreStatus:map[string]string{},retryAfter:map[string]time.Time{}},nil
+ return &Server{store:store,runner:OSRunner{},goos:runtime.GOOS,token:hex.EncodeToString(b),launcher:launcher,nasSessions:map[string]*nasSession{},restoreStatus:map[string]string{},renewLocks:map[string]*sync.Mutex{},retryAfter:map[string]time.Time{}},nil
 }
 func(s *Server)URL()string{return s.origin}
 func(s *Server)Start()(string,error){

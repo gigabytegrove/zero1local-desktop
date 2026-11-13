@@ -253,12 +253,6 @@ func (s *Server) connectNAS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err:=s.rememberExistingNAS(device.ID,device.URL,in,session);err!=nil {session.client.CloseIdleConnections();s.bad(w,err);return}
-	s.nasMu.Lock()
-	if old := s.nasSessions[device.ID]; old != nil {
-		old.client.CloseIdleConnections()
-	}
-	s.nasSessions[device.ID] = session
-	s.nasMu.Unlock()
 	s.writeJSON(w, http.StatusOK, map[string]any{
 		"ok": true, "id": device.ID,
 		"username": session.username, "role": session.role,
@@ -273,7 +267,8 @@ func (s *Server) disconnectNAS(w http.ResponseWriter, r *http.Request) {
 		s.bad(w, err)
 		return
 	}
-	if d,ok:=s.store.Device(in.ID);ok&&d.RememberSignIn{
+	lock:=s.renewalLock(in.ID);lock.Lock();defer lock.Unlock()
+ if d,ok:=s.store.Device(in.ID);ok&&d.RememberSignIn{
   if err:=s.removeNASCredential(in.ID);err!=nil{s.bad(w,err);return}
   if err:=s.store.Update(func(c *Config)error{for i:=range c.Devices{if c.Devices[i].ID==in.ID{c.Devices[i].RememberSignIn=false;return nil}};return errors.New("unknown appliance")});err!=nil{s.bad(w,err);return}
  }

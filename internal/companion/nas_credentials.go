@@ -32,6 +32,18 @@ type savedNASCredential struct {
 	Role string `json:"role,omitempty"`
 }
 
+// Only renewal operations for the same NAS are serialized. One offline NAS
+// cannot delay a completely independent NAS workspace.
+func (s *Server) renewalLock(id string) *sync.Mutex {
+ s.reauthMu.Lock()
+ defer s.reauthMu.Unlock()
+ if s.renewLocks==nil{s.renewLocks=map[string]*sync.Mutex{}}
+ if lock:=s.renewLocks[id];lock!=nil{return lock}
+ lock:=&sync.Mutex{}
+ s.renewLocks[id]=lock
+ return lock
+}
+
 func (s *Server) ConfigureCredentialVault(v CredentialVault) {
 	// Configure once before Start. Preview mode intentionally has no vault.
 	s.vault = v
@@ -122,6 +134,7 @@ func (s *Server) nasRecoveryStatuses() map[string]string {
 }
 
 func (s *Server) rememberExistingNAS(id, address string, in nasLoginRequest, session *nasSession) error {
+ lock:=s.renewalLock(id);lock.Lock();defer lock.Unlock()
 	device, ok := s.store.Device(id)
 	if !ok || device.URL != address {
 		return errors.New("unknown appliance")
@@ -151,8 +164,12 @@ func (s *Server) rememberExistingNAS(id, address string, in nasLoginRequest, ses
 			return err
 		}
 	}
-	s.setNASRecoveryStatus(id, "")
-	return nil
+ s.nasMu.Lock()
+ if previous:=s.nasSessions[id];previous!=nil&&previous!=session{previous.client.CloseIdleConnections()}
+ s.nasSessions[id]=session
+ s.nasMu.Unlock()
+ s.setNASRecoveryStatus(id, "")
+ return nil
 }
 
 func (s *Server) forgetNASCredentialAPI(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +178,8 @@ func (s *Server) forgetNASCredentialAPI(w http.ResponseWriter, r *http.Request) 
 		s.bad(w, err)
 		return
 	}
-	device, ok := s.store.Device(in.ID)
+	lock:=s.renewalLock(in.ID);lock.Lock();defer lock.Unlock()
+ device, ok := s.store.Device(in.ID)
 	if !ok {
 		s.bad(w, errors.New("unknown appliance"))
 		return
@@ -191,8 +209,7 @@ func (s *Server) forgetNASCredentialAPI(w http.ResponseWriter, r *http.Request) 
 // A single guarded renewal prevents concurrent pages from producing a burst
 // of NAS login attempts and triggering remote account lockout.
 func (s *Server) renewRememberedNAS(ctx context.Context, id string, expected *nasSession) (*nasSession, error) {
-	s.reauthMu.Lock()
-	defer s.reauthMu.Unlock()
+	lock:=s.renewalLock(id);lock.Lock();defer lock.Unlock()
 	device, ok := s.store.Device(id)
 	if !ok || !device.RememberSignIn || s.vault == nil {
 		return nil, errors.New("sign in to this NAS again")
