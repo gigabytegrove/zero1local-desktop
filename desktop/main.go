@@ -42,6 +42,7 @@ func run() error {
  if err!=nil{return fmt.Errorf("desktop settings: %w",err)}
  svc,err:=companion.New(store,openExternal)
  if err!=nil{return err}
+ svc.ConfigureCredentialVault(nativeCredentialVault{})
  localURL,err:=svc.Start()
  if err!=nil{return err}
  defer func(){
