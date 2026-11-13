@@ -163,5 +163,5 @@ test("remembrance is an explicit per-device choice; preview cannot silently pers
  const checkbox=els.get("#modal-body").querySelector("#remember-nas");
  assert.ok(checkbox,"NAS sign-in must present a 'Keep me signed in' preference");
  assert.equal(checkbox.disabled,true,"no native OS keyring means this option must be disabled");
- assert.match(allText(els.get("#modal-body")),/system credential vault|secure credential vault/i);
+ assert.match(allText(els.get("#modal-body")),/securely save|securely saves|secure password storage/i);
 });
