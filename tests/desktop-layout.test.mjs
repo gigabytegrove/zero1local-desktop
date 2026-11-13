@@ -38,16 +38,16 @@ class Element {
   click(event={type:"click"}){const fn=this.listeners.get("click");if(fn)return fn(event)}
 }
 
-async function harness(devices=[]){
+async function harness(devices=[],mappings=[],connected=true){
   const names=["main","device-rail","modal","modal-body","modal-title","modal-form",
     "modal-submit","toast","top-title","top-subtitle","btn-discover","btn-add",
-    "appliance-switcher","topbar-presence","nav-management"];
+    "appliance-switcher","topbar-presence","nav-management","device-navigation","workspace-switcher","device-nav-title","back-to-devices"];
   const els=new Map(names.map(name=>["#"+name,new Element(name)]));
   const navigation=["home","devices","files","shares","mounts","system","storage","network",
     "docker","hardware","tasks","users","services","backups","protection","activity","settings"]
     .map(name=>{const el=new Element("button");el.dataset.nav=name;return el});
-  const settings={theme:"dark",devices,mappings:[]};
-  const state={settings,platform:"linux",sessions:Object.fromEntries(devices.map(d=>
+  const settings={theme:"dark",devices,mappings};
+  const state={settings,platform:"linux",sessions:Object.fromEntries((connected?devices:[]).map(d=>
     [d.id,{username:"root",role:"administrator"}])),updater:{supported:true,version:"0.1.0-beta.5"}};
   const document={
     documentElement:{dataset:{}},body:new Element("body"),
@@ -101,7 +101,11 @@ test("Add NAS click does not insert a PointerEvent into its address field",async
 
 test("connected NAS renders task-first overview without raw nested JSON",async()=>{
  const {els}=await harness([{id:"nas1",name:"nas1",url:"http://192.168.0.145",version:"1.4.7"}]);
+ assert.match(allText(els.get("#main")),/nas1/);
+ assert.equal(els.get("#device-navigation").hidden,true);
+ els.get("#device-rail").children[0].click();
  const content=allText(els.get("#main"));
+ assert.equal(els.get("#device-navigation").hidden,false);
  assert.match(content,/Browse files/);
  assert.match(content,/Check storage/);
  assert.match(content,/Connect shared folders/);
@@ -112,6 +116,7 @@ test("connected NAS renders task-first overview without raw nested JSON",async()
 
 test("storage view shows readable capacity and never appends literal null",async()=>{
  const {els,navigation}=await harness([{id:"nas1",name:"nas1",url:"http://192.168.0.145",version:"1.4.7"}]);
+ els.get("#device-rail").children[0].click();
  const storage=navigation.find(n=>n.dataset.nav==="storage");
  storage.click();
  await new Promise(resolve=>setImmediate(resolve));
@@ -120,4 +125,43 @@ test("storage view shows readable capacity and never appends literal null",async
  assert.match(text,/Main storage/);
  assert.match(text,/RAID arrays/);
  assert.doesNotMatch(text,/(^|\s)null(\s|$)/);
+});
+
+
+test("every management view belongs to a selected NAS, not a mixed default workspace",async()=>{
+ const nas1={id:"nas1",name:"Primary NAS",url:"http://192.168.0.145",version:"1.4.7"};
+ const nas2={id:"nas2",name:"Archive NAS",url:"http://192.168.0.146",version:"1.4.7"};
+ const mappings=[
+  {id:"drive1",deviceId:"nas1",protocol:"smb",server:"primary",remote:"PrimaryDocs",target:"X:",reconnect:true},
+  {id:"drive2",deviceId:"nas2",protocol:"smb",server:"archive",remote:"ArchiveOnly",target:"Y:",reconnect:false}
+ ];
+ const {els,navigation}=await harness([nas1,nas2],mappings);
+ assert.equal(els.get("#device-navigation").hidden,true,"global landing must not show NAS navigation");
+ assert.match(allText(els.get("#main")),/Primary NAS/);
+ assert.match(allText(els.get("#main")),/Archive NAS/);
+ const rail=els.get("#device-rail");
+ rail.children[0].click();
+ assert.equal(els.get("#device-navigation").hidden,false);
+ assert.match(allText(els.get("#main")),/Primary NAS/);
+ assert.doesNotMatch(allText(els.get("#main")),/ArchiveOnly/);
+ navigation.find(n=>n.dataset.nav==="mounts").click();
+ let body=allText(els.get("#main"));
+ assert.match(body,/PrimaryDocs/);
+ assert.doesNotMatch(body,/ArchiveOnly/);
+ navigation.find(n=>n.dataset.nav==="devices").click();
+ assert.equal(els.get("#device-navigation").hidden,true);
+ els.get("#device-rail").children[1].click();
+ navigation.find(n=>n.dataset.nav==="mounts").click();
+ body=allText(els.get("#main"));
+ assert.match(body,/ArchiveOnly/);
+ assert.doesNotMatch(body,/PrimaryDocs/);
+});
+
+test("remembrance is an explicit per-device choice; preview cannot silently persist a password",async()=>{
+ const {els}=await harness();
+ els.get("#btn-add").click({type:"click"});
+ const checkbox=els.get("#modal-body").querySelector("#remember-nas");
+ assert.ok(checkbox,"NAS sign-in must present a 'Keep me signed in' preference");
+ assert.equal(checkbox.disabled,true,"no native OS keyring means this option must be disabled");
+ assert.match(allText(els.get("#modal-body")),/system credential vault|secure credential vault/i);
 });

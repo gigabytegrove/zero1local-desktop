@@ -88,6 +88,6 @@ for (const populated of [false, true]) {
     const main = bySelector.get("#main");
     assert.ok(main.children.length > 0, "main element must have content");
     assert.notEqual(main.children[0], loading, "loading screen must be replaced");
-    assert.equal(bySelector.get("#top-title").textContent, "Overview");
+    assert.equal(bySelector.get("#top-title").textContent, "My appliances");
   });
 }
