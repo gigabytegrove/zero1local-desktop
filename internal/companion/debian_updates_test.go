@@ -37,7 +37,7 @@ func TestReleaseVersions(t *testing.T) {
 
 func TestReleaseChecksumParser(t *testing.T) {
 	digest := strings.Repeat("a", 64)
-	got, err := digestForAsset(digest+"  Zero1Local-Desktop-abcdef-linux-amd64.deb\n", "Zero1Local-Desktop-abcdef-linux-amd64.deb")
+	got, err := digestForAsset(digest+"  Zero1Local-Desktop-abcdef012345-linux-amd64.deb\n", "Zero1Local-Desktop-abcdef012345-linux-amd64.deb")
 	if err != nil || hex.EncodeToString(got) != digest {
 		t.Fatalf("valid checksum rejected: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestReleaseSelection(t *testing.T) {
 		r := publicRelease{TagName: version}
 		if assets {
 			r.Assets = []releaseAsset{
-				{Name: "Zero1Local-Desktop-abcdef-linux-amd64.deb", Size: 20, URL: "https://github.com/gigabytegrove/zero1local-desktop/releases/download/" + version + "/test.deb"},
+				{Name: "Zero1Local-Desktop-abcdef012345-linux-amd64.deb", Size: 20, URL: "https://github.com/gigabytegrove/zero1local-desktop/releases/download/" + version + "/test.deb"},
 				{Name: "SHA256SUMS", Size: 120, URL: "https://github.com/gigabytegrove/zero1local-desktop/releases/download/" + version + "/SHA256SUMS"},
 			}
 		}
@@ -151,5 +151,28 @@ func TestVerifiedDebianDownloadStaysPrivateAndDetectsTampering(t *testing.T){
  })
  if _,cleanup,err:=downloadVerifiedDebianWithClient(context.Background(),selected,client,nil);err==nil{
   cleanup();t.Fatal("tampered release manifest was accepted")
+ }
+}
+
+func TestDebianReleaseRejectsUnbuildableAssetNames(t *testing.T) {
+ const tag="v0.1.0-beta.8"
+ assetURL:="https://github.com/gigabytegrove/zero1local-desktop/releases/download/"+tag+"/"
+ cases:=[]string{
+  "Zero1Local-Desktop-not-a-commit-linux-amd64.deb",
+  "Zero1Local-Desktop-abcdef-linux-amd64.deb",
+  "Zero1Local-Desktop-ABCDEF012345-linux-amd64.deb",
+  "../Zero1Local-Desktop-abcdef012345-linux-amd64.deb",
+ }
+ for _,name:=range cases{
+  if debianAssetPattern.MatchString(name){
+   t.Fatalf("invalid release asset accepted: %q",name)
+  }
+  release:=publicRelease{TagName:tag,Assets:[]releaseAsset{
+   {Name:name,URL:assetURL+"bad.deb",Size:30},
+   {Name:"SHA256SUMS",URL:assetURL+"SHA256SUMS",Size:120},
+  }}
+  if _,found,err:=chooseUpdateRelease([]publicRelease{release},"0.1.0-beta.7","debian");err!=nil||found{
+   t.Fatalf("selected unbuildable release %q: found=%v error=%v",name,found,err)
+  }
  }
 }
