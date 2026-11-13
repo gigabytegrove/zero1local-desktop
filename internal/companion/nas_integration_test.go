@@ -37,7 +37,9 @@ func TestNASSessionsNeverCrossAppliances(t *testing.T) {
 	defer b.Close()
 
 	svc, err := New(tempStore(t), nil)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	svc.origin = "http://127.0.0.1:8124"
 	for _, pair := range []struct {
 		ID, URL string
@@ -48,11 +50,15 @@ func TestNASSessionsNeverCrossAppliances(t *testing.T) {
 		if err := svc.store.Update(func(c *Config) error {
 			c.Devices = append(c.Devices, InstalledDevice{ID: id, URL: origin, Name: id})
 			return nil
-		}); err != nil { t.Fatal(err) }
+		}); err != nil {
+			t.Fatal(err)
+		}
 		sess, err := svc.loginNAS(context.Background(), origin, nasLoginRequest{
 			Username: "root", Password: "secret", AllowHTTP: true,
 		})
-		if err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
 		svc.nasMu.Lock()
 		svc.nasSessions[id] = sess
 		svc.nasMu.Unlock()
@@ -88,11 +94,20 @@ func TestNASUploadWithLocalCSRFAndNASMutationGuard(t *testing.T) {
 				return
 			}
 			reader, err := r.MultipartReader()
-			if err != nil { http.Error(w, "bad upload", 400); return }
+			if err != nil {
+				http.Error(w, "bad upload", 400)
+				return
+			}
 			part, err := reader.NextPart()
-			if err != nil || part.FileName() != name { http.Error(w, "bad file", 400); return }
+			if err != nil || part.FileName() != name {
+				http.Error(w, "bad file", 400)
+				return
+			}
 			raw, err := io.ReadAll(part)
-			if err != nil || !bytes.Equal(raw, payload) { http.Error(w, "wrong file data", 400); return }
+			if err != nil || !bytes.Equal(raw, payload) {
+				http.Error(w, "wrong file data", 400)
+				return
+			}
 			_, _ = io.WriteString(w, `{"ok":true}`)
 		default:
 			http.NotFound(w, r)
@@ -100,25 +115,37 @@ func TestNASUploadWithLocalCSRFAndNASMutationGuard(t *testing.T) {
 	}))
 	defer nas.Close()
 	svc, err := New(tempStore(t), nil)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	svc.origin = "http://127.0.0.1:8124"
 	if err := svc.store.Update(func(c *Config) error {
 		c.Devices = append(c.Devices, InstalledDevice{ID: "nas", URL: nas.URL, Name: "NAS"})
 		return nil
-	}); err != nil { t.Fatal(err) }
+	}); err != nil {
+		t.Fatal(err)
+	}
 	sess, err := svc.loginNAS(context.Background(), nas.URL, nasLoginRequest{
 		Username: "root", Password: "secret", AllowHTTP: true,
 	})
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	svc.nasMu.Lock()
 	svc.nasSessions["nas"] = sess
 	svc.nasMu.Unlock()
 	var body bytes.Buffer
 	form := multipart.NewWriter(&body)
 	file, err := form.CreateFormFile("file", name)
-	if err != nil { t.Fatal(err) }
-	if _, err := file.Write(payload); err != nil { t.Fatal(err) }
-	if err := form.Close(); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	if err := form.Close(); err != nil {
+		t.Fatal(err)
+	}
 	const requestPath = "/api/nas/upload?id=nas&path=%2Fdisk0%2FDocs"
 	makeRequest := func(origin, csrf string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, svc.origin+requestPath, bytes.NewReader(body.Bytes()))

@@ -9,10 +9,10 @@ import (
 	"io"
 	"mime"
 	"net/http"
-	"path"
-	"strconv"
 	"net/http/cookiejar"
 	"net/url"
+	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -77,7 +77,7 @@ func newNASClient() (*http.Client, error) {
 	transport.Proxy = nil
 	transport.MaxIdleConnsPerHost = 2
 	return &http.Client{
-		Timeout: 15 * time.Second,
+		Timeout:   15 * time.Second,
 		Transport: transport,
 		Jar:       jar,
 		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
@@ -263,7 +263,9 @@ func (s *Server) connectNAS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) disconnectNAS(w http.ResponseWriter, r *http.Request) {
-	var in struct{ ID string `json:"id"` }
+	var in struct {
+		ID string `json:"id"`
+	}
 	if err := s.decode(r, &in); err != nil {
 		s.bad(w, err)
 		return
@@ -376,7 +378,6 @@ func (s *Server) readNAS(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"resource": in.Resource, "data": payload})
 }
-
 
 // File operations are deliberately restricted to the NAS's existing,
 // authenticated, share-rooted handlers. No arbitrary proxy requests or
