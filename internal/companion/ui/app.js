@@ -5,7 +5,7 @@ const rail=document.querySelector("#device-rail");
 const modal=document.querySelector("#modal");
 const modalBody=document.querySelector("#modal-body");
 const navigation=[...document.querySelectorAll("[data-nav]")];
-const S={settings:{theme:"system",devices:[],mappings:[]},platform:"linux",view:"home",selected:"",busy:false,scan:[],inventory:null,sessions:{},live:{},liveLoading:"",liveErrors:{},fileLocation:{id:"",share:"",rel:""},updater:{supported:false,version:"development preview",channel:"beta",checking:false}};
+const S={settings:{theme:"system",devices:[],mappings:[]},platform:"linux",view:"devices",selected:"",busy:false,scan:[],inventory:null,sessions:{},live:{},liveLoading:"",liveErrors:{},fileLocation:{id:"",share:"",rel:""},updater:{supported:false,version:"development preview",channel:"beta",checking:false}};
 
 const getDevice=id=>S.settings.devices.find(d=>d.id===id);
 const selected=()=>getDevice(S.selected);
@@ -44,8 +44,8 @@ async function task(fn){
 async function reload(){
  const result=await request("/api/state");
  S.settings=result.settings;S.platform=result.platform;S.updater=result.updater||S.updater;S.sessions=result.sessions||{};
- if(S.selected&&!getDevice(S.selected))S.selected="";
- if(!S.selected&&S.settings.devices.length)S.selected=S.settings.devices[0].id;
+ S.sessionRecovery=result.sessionRecovery||{};S.credentialVaultAvailable=!!result.credentialVaultAvailable;
+ if(S.selected&&!getDevice(S.selected)){S.selected="";S.view="devices"}
  theme();render();
 }
 const systemTheme=matchMedia("(prefers-color-scheme: dark)");
@@ -53,7 +53,7 @@ function theme(){
  document.documentElement.dataset.theme=S.settings.theme==="system"?(systemTheme.matches?"dark":"light"):S.settings.theme;
 }
 systemTheme.addEventListener("change",()=>{if(S.settings.theme==="system")theme()});
-function choose(id){S.selected=id;S.inventory=null;S.view="home";render();main.focus({preventScroll:true})}
+function choose(id){if(!getDevice(id))return;S.selected=id;S.inventory=null;S.fileLocation={id,share:"",rel:""};S.view="home";render();main.focus({preventScroll:true})}
 function heading(title,text){return node("div",{class:"page-heading"},node("div",{},node("h1",{text:title}),node("p",{text})))}
 function section(title,content){return node("section",{class:"section"},node("div",{class:"section-title"},node("h2",{text:title})),content)}
 function primary(title,subtitle){return node("div",{},node("strong",{text:title}),node("small",{text:subtitle}))}
@@ -80,13 +80,18 @@ function listRail(){
 }
 function render(){
  listRail();
+ if(S.view!=="devices"&&S.view!=="settings"&&!selected())S.view="devices";
+ const scoped=S.view!=="devices"&&S.view!=="settings";
+ const deviceNav=document.querySelector("#device-navigation");if(deviceNav)deviceNav.hidden=!scoped;
+ const switcherPanel=document.querySelector("#workspace-switcher");if(switcherPanel)switcherPanel.hidden=!scoped;
+ const deviceTitle=document.querySelector("#device-nav-title");if(deviceTitle)deviceTitle.textContent=selected()?.name||"NAS workspace";
  navigation.forEach(b=>{
   const active=b.dataset.nav===S.view;b.classList.toggle("active",active);
   if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");
  });
  const titles={home:"Overview",devices:"My appliances",files:"File manager",shares:"Shared folders",mounts:"Mapped drives",system:"System",storage:"Storage",network:"Network",docker:"Docker",hardware:"Hardware",tasks:"Tasks",users:"Users & groups",services:"Services",backups:"Backups",activity:"Notifications",protection:"Protection",settings:"Desktop settings"};
  document.querySelector("#top-title").textContent=titles[S.view];
- document.querySelector("#top-subtitle").textContent=selected()?.name||"Zero1Local on this computer";
+ document.querySelector("#top-subtitle").textContent=scoped?(selected()?.name||"NAS workspace"):"Manage your Zero1Local NAS devices";
  document.querySelector("#btn-discover").disabled=S.busy;
  const manage=document.querySelector("#nav-management");
  if(manage&&["system","storage","network","docker","hardware","tasks","users","services","backups","protection","activity"].includes(S.view))manage.open=true;
@@ -98,8 +103,8 @@ function render(){
   switcher.disabled=S.busy||S.settings.devices.length===0;
  }
  const presence=document.querySelector("#topbar-presence");
- if(presence){const d=selected(),session=d&&S.sessions[d.id];presence.textContent=!d?"No NAS selected":session?"● Signed in":"○ Sign-in required";presence.className="topbar-presence "+(session?"online":"offline")}
- document.querySelector("#btn-discover").hidden=!["home","devices"].includes(S.view);
+ if(presence){const d=selected(),session=d&&S.sessions[d.id];presence.textContent=!d?"No NAS selected":session?"● Signed in":S.sessionRecovery?.[d.id]?"◌ Restoring sign-in":"○ Sign-in required";presence.className="topbar-presence "+(session?"online":"offline")}
+ document.querySelector("#btn-discover").hidden=S.view!=="devices";
  document.querySelector("#btn-add").disabled=S.busy;
  switch(S.view){
  case "devices":main.replaceChildren(devicesPage());break;
@@ -511,6 +516,7 @@ const managedViews={
 function sessionFor(d=selected()){return d?S.sessions[d.id]:null}
 function switchView(view){
  if(!["home","devices","files","shares","mounts","system","storage","network","docker","hardware","tasks","users","services","backups","activity","protection","settings"].includes(view))return;
+ if(!["devices","settings"].includes(view)&&!selected()){S.view="devices";render();return}
  S.view=view;render();main.focus({preventScroll:true});
  if(view==="files"||managedViews[view])refreshLive(false);
  if(view==="shares"&&sessionFor(selected())&&!S.inventory)loadInventory();
@@ -851,6 +857,7 @@ navigation.forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.nav)))
 document.querySelector("#btn-add").addEventListener("click",()=>addDialog());
 document.querySelector("#btn-discover").addEventListener("click",discover);
  document.querySelector("#appliance-switcher")?.addEventListener("change",e=>{if(e.target.value)choose(e.target.value)});
+ document.querySelector("#back-to-devices")?.addEventListener("click",()=>switchView("devices"));
 reload().catch(e=>{
  main.replaceChildren(empty("!","Desktop service unavailable",e.message,
   button("Retry connection",()=>reload().catch(err=>flash(err.message||"Unable to reconnect")),"btn btn-primary",false)));

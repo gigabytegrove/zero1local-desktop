@@ -16,8 +16,10 @@
  <div class="device-rail" id="device-rail"><span class="rail-empty">No appliances saved</span></div>
  <div class="rail-label">Workspace</div>
  <nav class="application-rail" aria-label="Desktop sections">
-  <button class="app-nav-item active" type="button" data-nav="home"><span class="nav-symbol" aria-hidden="true">⌂</span> Overview</button>
-  <button class="app-nav-item" type="button" data-nav="devices"><span class="nav-symbol" aria-hidden="true">▣</span> My appliances</button>
+  <button class="app-nav-item active" type="button" data-nav="devices"><span class="nav-symbol" aria-hidden="true">▣</span> All NAS devices</button>
+  <div id="device-navigation" class="device-navigation" hidden aria-label="Selected NAS navigation">
+   <div class="device-nav-title" id="device-nav-title">Selected NAS</div>
+   <button class="app-nav-item" type="button" data-nav="home"><span class="nav-symbol" aria-hidden="true">⌂</span> Overview</button>
   <button class="app-nav-item" type="button" data-nav="files"><span class="nav-symbol" aria-hidden="true">▦</span> File manager</button>
   <button class="app-nav-item" type="button" data-nav="shares"><span class="nav-symbol" aria-hidden="true">▤</span> Shared folders</button>
   <button class="app-nav-item" type="button" data-nav="mounts"><span class="nav-symbol" aria-hidden="true">⌘</span> Mapped drives</button>
@@ -37,14 +39,15 @@
   <button class="app-nav-item" type="button" data-nav="activity"><span class="nav-symbol" aria-hidden="true">◉</span> Notifications</button>
    </div>
   </details>
+  </div>
   <button class="app-nav-item nav-settings" type="button" data-nav="settings"><span class="nav-symbol" aria-hidden="true">⚙</span> Settings</button>
  </nav>
  <div class="side-footer"><span class="connection-dot"></span><span>Local desktop application<small>Windows · Linux · macOS</small></span></div>
 </aside>
 <div class="workspace">
  <header class="topbar">
-  <div class="topbar-identity"><strong id="top-title">Overview</strong><small id="top-subtitle">Zero1Local on this computer</small></div>
-  <div class="topbar-appliance"><label for="appliance-switcher">Current appliance</label><select id="appliance-switcher" aria-label="Switch Zero1Local appliance"></select><span class="topbar-presence" id="topbar-presence" role="status">No NAS selected</span></div>
+  <div class="topbar-identity"><strong id="top-title">All NAS devices</strong><small id="top-subtitle">Zero1Local on this computer</small></div>
+  <div class="topbar-appliance" id="workspace-switcher" hidden><button class="topbar-back" id="back-to-devices" type="button">All NAS devices</button><span class="topbar-path-separator" aria-hidden="true">/</span><label for="appliance-switcher">Current appliance</label><select id="appliance-switcher" aria-label="Switch Zero1Local appliance"></select><span class="topbar-presence" id="topbar-presence" role="status">No NAS selected</span></div>
   <div class="top-actions"><button class="btn btn-quiet" id="btn-discover" type="button">Scan network</button><button class="btn btn-primary" id="btn-add" type="button">+ Add NAS</button></div>
  </header>
  <main id="main" class="page" tabindex="-1"><div class="loading">Loading your desktop workspace…</div><noscript>JavaScript is required to use the Zero1Local Desktop workspace.</noscript></main>
