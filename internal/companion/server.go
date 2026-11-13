@@ -179,6 +179,7 @@ func (s *Server) add(w http.ResponseWriter, r *http.Request) {
 func(s *Server)remove(w http.ResponseWriter,r *http.Request){
  var in struct{ID string `json:"id"`}
  if err:=s.decode(r,&in);err!=nil{s.bad(w,err);return}
+ lock:=s.renewalLock(in.ID);lock.Lock();defer lock.Unlock()
  if d,ok:=s.store.Device(in.ID);ok{
   for _,m:=range s.store.Snapshot().Mappings{if m.DeviceID==in.ID{s.bad(w,errors.New("disconnect saved shares before forgetting appliance"));return}}
   if d.RememberSignIn{if err:=s.removeNASCredential(in.ID);err!=nil{s.bad(w,err);return}}

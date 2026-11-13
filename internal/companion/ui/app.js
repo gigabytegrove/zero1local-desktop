@@ -572,10 +572,27 @@ function connectionBanner(d){
  );
 }
 async function disconnectDevice(id){
- await task(async()=>{await request("/api/nas/logout",{id});await reload();flash("Signed out of the NAS. Saved sign-in was also cleared.")});
+ const d=getDevice(id);
+ const signout=async()=>task(async()=>{
+  await request("/api/nas/logout",{id});await reload();
+  flash(d?.rememberSignIn?"Signed out. Saved sign-in was removed from this computer.":"Signed out of "+(d?.name||"the NAS")+".");
+ });
+ if(d?.rememberSignIn){
+  dialog("Sign out and forget "+d.name+"?",node("div",{},
+   node("p",{text:"You will be signed out of "+d.name+" and its saved sign-in will be removed from this computer."}),
+   node("p",{class:"hint",text:"Your NAS account and share files will not change."})),
+   signout,"Sign out & forget");
+  return;
+ }
+ await signout();
 }
 async function forgetSavedNAS(id){
- await task(async()=>{await request("/api/nas/forget-credential",{id});await reload();flash("Saved NAS sign-in disabled. Your active session stays connected.")});
+ const d=getDevice(id);if(!d)return;
+ dialog("Stop remembering "+d.name+"?",node("div",{},
+  node("p",{text:"Remove the saved sign-in for "+d.name+" from your computer?"}),
+  node("p",{class:"hint",text:"Your current NAS session stays connected. You'll enter your password again after it expires."})),
+  ()=>task(async()=>{await request("/api/nas/forget-credential",{id});await reload();flash("Saved sign-in removed for "+d.name)}),
+  "Stop remembering");
 }
 function liveKey(d,resource){return d.id+":"+resource+(resource==="files"?":"+S.fileLocation.share+":"+S.fileLocation.rel:"")}
 async function refreshLive(force=true){
