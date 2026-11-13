@@ -187,22 +187,45 @@ function homePage(){
  return root;
 }
 function devicesPage(){
- const root=node("div",{},heading("My appliances","Zero1Local devices you chose to save. Discovery is read-only and does not automatically trust endpoints."));
- if(S.settings.devices.length)root.append(section("Saved installations",table(["Appliance","Version","Status","Actions"],
- S.settings.devices.map(d=>[
-  primary(d.name,d.url),node("span",{text:d.version||"Unknown"}),
-  node("span",{class:"state-label "+(S.sessions[d.id]?"good":"warn"),text:S.sessions[d.id]?"Signed in: "+S.sessions[d.id].username:"Sign-in required"}),
-  node("div",{class:"actions"},
-   button("Select",()=>choose(d.id)),
-   S.sessions[d.id]?button("Sign out",()=>disconnectDevice(d.id)):button("Sign in",()=>credentialDialog(d.id)),
-   button("Manage",()=>openDevice(d.id)),
-   button("Forget",()=>forget(d),"btn btn-danger"))
- ]))));
- else root.append(empty("▣","No appliances yet","Scan your network or enter the NAS management address.",button("Scan network",discover,"btn btn-primary")));
- if(S.scan.length)root.append(section("Discovered candidates",table(["Appliance","Version","Address","Action"],
-  S.scan.map(d=>[primary(d.name,d.url),node("span",{text:d.version}),
-   node("span",{class:"path",text:d.url}),button("Sign in & save",()=>addDialog(d.url),"btn btn-primary")])
-  )));
+ const root=node("div",{class:"appliances-page"},heading("My appliances",
+  "Select, sign in to or manage the Zero1Local installations registered on this computer."));
+ root.append(node("div",{class:"appliance-directory-toolbar"},
+  node("span",{class:"muted",text:S.settings.devices.length+" saved appliance"+(S.settings.devices.length===1?"":"s")}),
+  node("div",{class:"actions"},button("Scan this network",discover,"btn btn-quiet"),
+   button("Add appliance",()=>addDialog(),"btn btn-primary"))
+ ));
+ if(S.settings.devices.length){
+  root.append(node("div",{class:"appliance-directory"},
+   ...S.settings.devices.map(d=>{
+    const session=S.sessions[d.id];
+    return node("section",{class:"appliance-directory-row"},
+     node("div",{class:"appliance-directory-identity"},
+      node("span",{class:"connection-dot "+(session?"connected":"disconnected"),"aria-hidden":"true"}),
+      node("div",{},node("h2",{text:d.name}),node("p",{class:"path",text:d.url}),
+       node("small",{text:"Zero1Local "+(d.version||"version unknown")}))
+     ),
+     node("div",{class:"appliance-directory-status"},
+      node("strong",{class:session?"online":"offline",text:session?"Signed in":"Authentication required"}),
+      node("small",{text:session?session.username+" · "+(session.role||"administrator"):
+       "Your saved device remains on this computer."})
+     ),
+     node("div",{class:"appliance-directory-actions"},
+      button("Open workspace",()=>choose(d.id),"btn btn-primary"),
+      session?button("Sign out",()=>disconnectDevice(d.id)):button("Sign in",()=>credentialDialog(d.id)),
+      button("NAS console",()=>openDevice(d.id)),
+      button("Forget",()=>forget(d),"btn btn-danger")
+     )
+    );
+   })
+  ));
+ }else root.append(empty("▣","No appliances registered",
+  "Discover a NAS on your local network or enter its management address to sign in.",
+  button("Add appliance",()=>addDialog(),"btn btn-primary")));
+ if(S.scan.length){
+  root.append(section("Discovered devices",table(["Appliance","Version","Address","Action"],
+   S.scan.map(d=>[primary(d.name,d.url),node("span",{text:d.version}),
+    node("span",{class:"path",text:d.url}),button("Sign in & save",()=>addDialog(d.url),"btn btn-primary")]))));
+ }
  return root;
 }
 function sharesPage(){
