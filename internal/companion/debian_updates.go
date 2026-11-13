@@ -23,32 +23,7 @@ import (
 const releaseAPI = "https://api.github.com/repos/gigabytegrove/zero1local-desktop/releases?per_page=30"
 const debianAssetLimit int64 = 256 << 20
 
-var debianAssetPattern = regexp.MustCompile(`^Zero1Local-Desktop-[0-9a-f]{12}-linux-amd64\.debpackage companion
-
-import (
-	"bufio"
-	"bytes"
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
-)
-
-const releaseAPI = "https://api.github.com/repos/gigabytegrove/zero1local-desktop/releases?per_page=30"
-const debianAssetLimit int64 = 256 << 20
-
-)
+var debianAssetPattern = regexp.MustCompile(`^Zero1Local-Desktop-[0-9a-f]{12}-linux-amd64\.deb$`)
 var versionTagPattern = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$`)
 
 type releaseAsset struct {
