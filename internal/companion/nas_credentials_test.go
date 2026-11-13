@@ -345,3 +345,31 @@ func TestMFAApprovedSavedSessionResumesWithoutSecondLogin(t *testing.T) {
 		t.Fatal("valid saved MFA session did not restore")
 	}
 }
+
+
+func TestIndependentNASRenewalsDoNotBlockEachOther(t *testing.T) {
+	svc, err := New(tempStore(t), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := svc.renewalLock("NAS-A")
+	second := svc.renewalLock("NAS-B")
+	if first == second || first != svc.renewalLock("NAS-A") {
+		t.Fatal("renewal locks are not appliance-scoped")
+	}
+	first.Lock()
+	completed := make(chan struct{})
+	go func() {
+		second.Lock()
+		second.Unlock()
+		close(completed)
+	}()
+	select {
+	case <-completed:
+		// An unavailable NAS must never block another NAS's sign-in.
+	case <-time.After(time.Second):
+		first.Unlock()
+		t.Fatal("NAS-B renewal was blocked by an unrelated NAS-A lock")
+	}
+	first.Unlock()
+}
