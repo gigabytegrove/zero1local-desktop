@@ -4,7 +4,6 @@ import(
  "context"
  "os"
  "path/filepath"
- "strings"
  "testing"
 )
 
@@ -33,9 +32,13 @@ func TestExpectedDebianVersionAndAssetIdentity(t *testing.T){
   "Zero1Local-Desktop-notasha-linux-amd64.deb",
   "Zero1Local-Desktop-123456789abc-windows-amd64.zip",
  }{
-  if _,err:=expectedDebianPackageVersion("0.1.0-beta.7",name);err==nil&&strings.Contains(name,"-windows-"){
-   t.Fatal("Windows asset accepted as Debian package")
+  if _,err:=expectedDebianPackageVersion("0.1.0-beta.7",name);err==nil{
+   t.Fatalf("unexpected Debian asset accepted: %s",name)
   }
+ }
+ stable,err:=expectedDebianPackageVersion("0.1.0","Zero1Local-Desktop-123456789abc-linux-amd64.deb")
+ if err!=nil||stable!="0.1.0+git123456789abc"{
+  t.Fatalf("stable upgrade version mismatch: %s, %v",stable,err)
  }
  if _,err:=expectedDebianPackageVersion("0.1.0-beta.7","Zero1Local-Desktop-badsha-linux-amd64.deb");err==nil{
   t.Fatal("unrecognized Debian source revision was accepted")
