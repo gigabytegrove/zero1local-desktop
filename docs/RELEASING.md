@@ -93,11 +93,12 @@ Do not redirect the diff to a hidden file and describe it as a syntax check.
 
 For a pinned release, use the existing **dockeradm command-block** release
 workflow, but format new Go files in a fresh detached worktree with `gofmt -w`
-before compiling. Run `git diff --check`, all Node tests, Go race tests,
-Go vet, Wails GTK-tagged tests, and Linux/Windows builds against that exact
-formatted worktree. Only after successful checks: commit formatting in the
-temporary worktree, push its resulting SHA to `main` (fast-forward only),
-and publish the prerelease tag against that same tested SHA. This avoids
+before compiling. Commit formatting **locally in that detached worktree**
+so the source SHA is known before building, without changing any shared
+branch. Run `git diff --check`, all Node tests, Go race tests, Go vet, Wails
+GTK-tagged tests, and Linux/Windows builds against the exact local commit.
+Only after successful checks: push its resulting SHA to `main`
+(fast-forward only), and publish the prerelease tag against that tested SHA. This avoids
 publishing a tag for a different source revision from what was compiled,
 and avoids pushing untested changes to `main`.
 
