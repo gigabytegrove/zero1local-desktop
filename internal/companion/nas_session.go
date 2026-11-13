@@ -7,7 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"path"
+	"strconv"
 	"net/http/cookiejar"
 	"net/url"
 	"strings"
@@ -370,4 +373,214 @@ func (s *Server) readNAS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"resource": in.Resource, "data": payload})
+}
+
+
+// File operations are deliberately restricted to the NAS's existing,
+// authenticated, share-rooted handlers. No arbitrary proxy requests or
+// NAS shell commands are allowed. The NAS performs final ACL and path checks.
+type nasFileAction struct {
+	ID     string `json:"id"`
+	Action string `json:"action"`
+	Path   string `json:"path"`
+	Name   string `json:"name"`
+}
+
+func (s *Server) nasFileAction(w http.ResponseWriter, r *http.Request) {
+	var in nasFileAction
+	if err := s.decode(r, &in); err != nil {
+		s.bad(w, err)
+		return
+	}
+	session, ok := s.getNASSession(in.ID)
+	if !ok {
+		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "NAS administrator sign-in is required"})
+		return
+	}
+	if in.Path == "" || len(in.Path) > 4096 {
+		s.bad(w, errors.New("invalid file path"))
+		return
+	}
+	endpoint := ""
+	payload := map[string]string{"Path": in.Path}
+	switch in.Action {
+	case "mkdir":
+		endpoint = "/api/files/mkdir"
+		payload["Name"] = in.Name
+	case "rename":
+		endpoint = "/api/files/rename"
+		payload["NewName"] = in.Name
+	case "trash":
+		endpoint = "/api/files/trash"
+	default:
+		s.bad(w, errors.New("unsupported file operation"))
+		return
+	}
+	if in.Action != "trash" {
+		if !validNASFileName(in.Name) {
+			s.bad(w, errors.New("invalid file or folder name"))
+			return
+		}
+	} else if in.Name != "" {
+		s.bad(w, errors.New("unexpected trash operation argument"))
+		return
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		s.bad(w, err)
+		return
+	}
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, session.origin+endpoint, bytes.NewReader(data))
+	if err != nil {
+		s.bad(w, err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Zero1Local-Request", "1")
+	req.Header.Set("User-Agent", "Zero1Local-Desktop")
+	resp, err := session.client.Do(req)
+	if err != nil {
+		s.writeJSON(w, http.StatusBadGateway, map[string]string{"error": "NAS file operation failed: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 128<<10))
+	if err != nil || !json.Valid(raw) {
+		s.writeJSON(w, http.StatusBadGateway, map[string]string{"error": "NAS returned an invalid file operation response"})
+		return
+	}
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		s.writeJSON(w, http.StatusBadGateway, map[string]string{"error": "NAS file operation response could not be decoded"})
+		return
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		msg, _ := result["error"].(string)
+		s.writeJSON(w, resp.StatusCode, map[string]string{"error": limitedNASMessage(msg)})
+		return
+	}
+	s.writeJSON(w, http.StatusOK, result)
+}
+
+func validNASFileName(name string) bool {
+	if name == "" || len(name) > 255 || name == "." || name == ".." || strings.TrimSpace(name) != name {
+		return false
+	}
+	return !strings.ContainsAny(name, "/\\\x00\r\n")
+}
+
+const nasTransferLimit int64 = 256 << 20
+
+func (s *Server) downloadNASFile(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		ID   string `json:"id"`
+		Path string `json:"path"`
+	}
+	if err := s.decode(r, &in); err != nil {
+		s.bad(w, err)
+		return
+	}
+	session, ok := s.getNASSession(in.ID)
+	if !ok {
+		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "NAS administrator sign-in is required"})
+		return
+	}
+	if in.Path == "" || len(in.Path) > 4096 {
+		s.bad(w, errors.New("invalid file path"))
+		return
+	}
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet,
+		session.origin+"/api/files/download?"+url.Values{"path": {in.Path}}.Encode(), nil)
+	if err != nil {
+		s.bad(w, err)
+		return
+	}
+	req.Header.Set("User-Agent", "Zero1Local-Desktop")
+	transferClient := *session.client
+	transferClient.Timeout = 15 * time.Minute
+	resp, err := transferClient.Do(req)
+	if err != nil {
+		s.writeJSON(w, http.StatusBadGateway, map[string]string{"error": "NAS download failed: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		s.writeJSON(w, http.StatusBadGateway, map[string]string{
+			"error": fmt.Sprintf("NAS file download returned HTTP %d", resp.StatusCode),
+		})
+		return
+	}
+	if resp.ContentLength < 0 || resp.ContentLength > nasTransferLimit {
+		s.writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{
+			"error": "This download is larger than 256 MiB or has no known size. Use the full NAS file manager for this file or folder.",
+		})
+		return
+	}
+	filename := path.Base(in.Path)
+	if !validNASFileName(filename) {
+		s.bad(w, errors.New("invalid download filename"))
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+	w.Header().Set("Content-Length", strconv.FormatInt(resp.ContentLength, 10))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.CopyN(w, resp.Body, resp.ContentLength)
+}
+
+func (s *Server) uploadNASFile(w http.ResponseWriter, r *http.Request) {
+	id, folder := r.URL.Query().Get("id"), r.URL.Query().Get("path")
+	session, ok := s.getNASSession(id)
+	if !ok {
+		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "NAS administrator sign-in is required"})
+		return
+	}
+	if folder == "" || len(folder) > 4096 {
+		s.bad(w, errors.New("invalid upload folder"))
+		return
+	}
+	kind, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || kind != "multipart/form-data" {
+		s.bad(w, errors.New("expected a multipart file upload"))
+		return
+	}
+	if r.ContentLength < 0 || r.ContentLength > nasTransferLimit {
+		s.writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "Upload must be 256 MiB or smaller"})
+		return
+	}
+	target := session.origin + "/api/files/upload?" + url.Values{"path": {folder}}.Encode()
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, target, r.Body)
+	if err != nil {
+		s.bad(w, err)
+		return
+	}
+	req.ContentLength = r.ContentLength
+	req.Header.Set("Content-Type", r.Header.Get("Content-Type"))
+	req.Header.Set("X-Zero1Local-Request", "1")
+	req.Header.Set("User-Agent", "Zero1Local-Desktop")
+	transferClient := *session.client
+	transferClient.Timeout = 15 * time.Minute
+	resp, err := transferClient.Do(req)
+	if err != nil {
+		s.writeJSON(w, http.StatusBadGateway, map[string]string{"error": "NAS upload failed: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 128<<10))
+	if err != nil || !json.Valid(raw) {
+		s.writeJSON(w, http.StatusBadGateway, map[string]string{"error": "NAS returned an invalid upload response"})
+		return
+	}
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		s.bad(w, err)
+		return
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		msg, _ := result["error"].(string)
+		s.writeJSON(w, resp.StatusCode, map[string]string{"error": limitedNASMessage(msg)})
+		return
+	}
+	s.writeJSON(w, http.StatusOK, result)
 }

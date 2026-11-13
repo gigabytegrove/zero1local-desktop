@@ -67,6 +67,9 @@ func(s *Server)Handler()http.Handler{
  m.HandleFunc("POST /api/nas/login",s.connectNAS)
  m.HandleFunc("POST /api/nas/logout",s.disconnectNAS)
  m.HandleFunc("POST /api/nas/read",s.readNAS)
+ m.HandleFunc("POST /api/nas/file-action",s.nasFileAction)
+ m.HandleFunc("POST /api/nas/download",s.downloadNASFile)
+ m.HandleFunc("POST /api/nas/upload",s.uploadNASFile)
  m.HandleFunc("POST /api/remove",s.remove)
  m.HandleFunc("POST /api/theme",s.theme)
  m.HandleFunc("POST /api/open",s.open)
@@ -89,7 +92,7 @@ func(s *Server)Handler()http.Handler{
    if r.Header.Get("Origin")!=s.origin || r.Header.Get("X-Z1L-Token")!=s.token{
     http.Error(w,"request not authorized",http.StatusForbidden);return
    }
-   r.Body=http.MaxBytesReader(w,r.Body,32*1024)
+   if r.URL.Path=="/api/nas/upload"{r.Body=http.MaxBytesReader(w,r.Body,nasTransferLimit+1)}else{r.Body=http.MaxBytesReader(w,r.Body,32*1024)}
   }
   m.ServeHTTP(w,r)
  })
