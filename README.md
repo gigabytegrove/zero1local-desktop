@@ -18,6 +18,22 @@ A genuine Go/Wails native desktop companion for the existing Zero1Local NAS plat
 - Top-level File Manager restricted to real NAS shared folders, with authenticated navigation, create folder, upload, download, rename and Move to Recycle Bin. Large transfers are limited to 256 MiB.
 - Original authenticated NAS management console remains available in the system browser for administrative features not yet reproduced securely in the desktop.
 
+
+## Beta 5 desktop layout rework
+The November 12, 2026 user screencast was decoded and visually reviewed in full: **929 consecutive frames**, without sampling. Details and before/after acceptance criteria are recorded in [UI-VIDEO-AUDIT.md](docs/UI-VIDEO-AUDIT.md).
+
+- Fixed the **[object PointerEvent]** text appearing in Add Appliance's address field by removing the browser-event/default-address coupling.
+- Added an always-visible appliance selector and sign-in status in the command header; NAS list moved ahead of secondary navigation.
+- Replaced the 17-item always-open side navigation with a grouped management disclosure.
+- Rebuilt Overview as an appliance-first command workspace with primary actions, connection identity, quick tasks and mapping summary.
+- Rebuilt My Appliances as an actionable device directory with status and direct sign-in/management controls.
+- Simplified File Manager's share list, removed literal **null** and eliminated duplicate initial Load/Loading UI.
+- Reordered shared-folder connection around verified SMB/NFS inventories before advanced manual mapping.
+- Added human-readable disk capacity meters, RAID health tables and opt-in raw diagnostics rather than dense JSON/mdstat blocks.
+- Kept existing Zero1Local light/dark source branding, session boundaries, update APIs, and NAS administration abilities unchanged.
+
+**Status:** Beta 5 has new source and regression tests; the native Windows/Linux release must still pass the build/test/package/release gate. End-to-end device UI acceptance is not implied by JavaScript parsing or Linux cross-compilation.
+
 ## Connecting an appliance
 
 1. Open **Add appliance**, enter its IP address or management hostname, then enter the NAS administrator username, password and optional six-digit TOTP code. Discovery candidates use the same sign-in process.
