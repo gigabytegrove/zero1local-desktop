@@ -64,6 +64,10 @@ func run() error {
  checkForUpdates, unavailable, err := configureUpdater(app)
  if err != nil { return fmt.Errorf("configure native updater: %w", err) }
  svc.ConfigureUpdater(currentVersion, updateChannel, checkForUpdates, unavailable)
+ if runtime.GOOS=="linux"&&runtime.GOARCH=="amd64"&&nativeDebianInstall(){
+  svc.ConfigureDebianInstaller(installNativeDebianPackage)
+  svc.ConfigureUpdateRestart(func()error{return scheduleDesktopRestart(app)})
+ }
  window=app.Window.NewWithOptions(application.WebviewWindowOptions{
   Name:"desktop-workspace", Title:"Zero1Local Desktop",
   Width:1320,Height:800,MinWidth:860,MinHeight:560,

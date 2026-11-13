@@ -23,7 +23,7 @@ const (
 // currentVersion is set to the release's version (without v) by -ldflags.
 // Always update this fallback with each source release; a fresh dev build
 // otherwise risks reporting a version different from its actual code.
-var currentVersion = "0.1.0-beta.6"
+var currentVersion = "0.1.0-beta.7"
 
 // updateArtifactName is intentionally strict. The GitHub release also carries
 // .deb installers and user-facing ZIPs, neither of which should be passed to
@@ -56,7 +56,7 @@ func writableInstallDirectory(goos, executable string) error {
 	if goos == "linux" && (strings.HasPrefix(executable, "/usr/bin/") ||
 		strings.HasPrefix(executable, "/usr/local/bin/") ||
 		strings.HasPrefix(executable, "/opt/")) {
-		return errors.New("system-installed Linux application: install the updated .deb from GitHub Releases using your package manager")
+		return errors.New("system-installed Linux application: Desktop can install verified Debian updates with administrator approval")
 	}
 	f, err := os.CreateTemp(filepath.Dir(executable), ".zero1local-updater-permission-*")
 	if err != nil {

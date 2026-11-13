@@ -84,6 +84,8 @@ func(s *Server)Handler()http.Handler{
  m.HandleFunc("POST /api/unmount",s.unmountAPI)
  m.HandleFunc("POST /api/shares",s.sharesAPI)
  m.HandleFunc("POST /api/updates/check",s.updateCheckAPI)
+ m.HandleFunc("POST /api/updates/install",s.updateInstallAPI)
+ m.HandleFunc("POST /api/updates/restart",s.updateRestartAPI)
  m.HandleFunc("POST /api/updates/releases",s.updateReleasesAPI)
  m.HandleFunc("POST /api/updates/download-deb",s.downloadDebianAPI)
  return http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
