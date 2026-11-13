@@ -1,4 +1,4 @@
-# Zero1Local Desktop implementation status (2026-11-12)
+# Zero1Local Desktop implementation status (2026-11-12, beta.4 development)
 
 ## Completed in source (portable Go verified)
 - Existing Zero1Local management API endpoints reviewed against private NAS source.
@@ -10,6 +10,16 @@
 - Windows SMB drive-letter command adapter, Linux GVfs SMB and NFSv3 (with pkexec) and macOS SMB Finder launcher.
 - Read-only Zero1Local shares and NFS export API requests using per-request bearer token **only** over HTTPS.
 - Go tests for portable core, store, unauthorized API calls, mount validation and unknown appliance.
+
+## Beta 4 development (credentialed desktop management)
+- New devices require successful administrator login against Zero1Local's real `POST /api/login` with optional TOTP before being saved.
+- Reconnect saved devices with per-NAS session cookies held only in the local Go service. Passwords and cookies are never persisted.
+- HTTP administrator login requires explicit informed opt-in. HTTPS uses normal certificate verification. Server redirects and proxies are disabled.
+- Live, bounded, read-only NAS data for files, SMB/NFS shares, storage, users, tasks, services, notifications, protection plans and backups.
+- File manager operations: folder creation, rename, recycle, upload (256 MiB per request), and single-file downloads (256 MiB limit), gated by NAS ACL and explicit actions.
+- Full NAS administration continues in the existing authenticated browser UI for functionality not yet securely ported.
+- Regression tests cover authenticated onboarding, session isolation, HTTP consent, local CSRF, file actions and frontend syntax/rendering.
+- **Still unqualified:** native Windows/Linux runtime, full multi-NAS session compatibility, updater interaction, SMB credential handling, large file transfers, embedded remote console isolation.
 
 ## Native host present, platform validation still blocked
 - Wails v3.0.0 native window and system tray source is committed in desktop/main.go.

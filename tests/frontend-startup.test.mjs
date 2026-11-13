@@ -31,6 +31,18 @@ class FakeElement {
   }
 }
 
+test("credentialed onboarding, desktop management, and file features are present", () => {
+  assert.ok(source.includes('"/api/add",payload'),"new appliances must go through credentialed enrollment");
+  assert.ok(source.includes('"/api/nas/login"'),"previously saved appliances must support sign-in");
+  assert.ok(source.includes('"/api/nas/read"'),"live management data should come from the NAS");
+  assert.ok(source.includes('"/api/nas/file-action"'),"file actions must use scoped NAS APIs");
+  assert.ok(source.includes('"/api/nas/download"'),"file downloads must not expose NAS cookies");
+  assert.ok(source.includes('"/api/nas/upload?id="'),"NAS uploads must use the local authenticated bridge");
+  for(const view of ["files","storage","tasks","users","services","backups","protection","activity"]){
+    assert.ok(html.includes('data-nav="'+view+'"'),"missing desktop navigation: "+view);
+  }
+});
+
 test("the shipped frontend and startup watchdog are valid JavaScript", () => {
   assert.doesNotThrow(() => new Script(source, { filename: "app.js" }));
   assert.doesNotThrow(() => new Script(watchdog, { filename: "startup.js" }));

@@ -132,3 +132,8 @@ dialog::backdrop{background:#071a3880}
 .file-name{display:block;max-width:330px;overflow-wrap:anywhere;font-weight:600}
 .cell-value{overflow-wrap:anywhere;max-width:250px;display:block}
 @media (max-width:700px){.connection-banner{padding:12px}.live-toolbar .hint{flex-basis:100%}.metrics-grid{grid-template-columns:1fr}}
+
+.file-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 18px}
+.file-actions .btn{min-height:38px}
+.file-crumbs{overflow-wrap:anywhere}
+.signin-form .field{margin-bottom:0}

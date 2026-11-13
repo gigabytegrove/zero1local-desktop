@@ -546,17 +546,26 @@ function fileManagerPage(){
    ])):empty("▣","No user shares found","Only folders exposed by Zero1Local's share inventory are shown.")));
  }else if(data?.scope==="share"){
   const entries=Array.isArray(data.entries)?data.entries:[];
+  root.append(node("div",{class:"file-actions"},
+   button("New folder",()=>newFolderDialog(d,data.path),"btn btn-primary",S.busy||!data.writable),
+   button("Upload files",()=>chooseUpload(d,data.path),"btn btn-quiet",S.busy||!data.writable)
+  ));
   root.append(section(location.share+" / "+(location.rel||""),
-   entries.length?table(["Name","Size","Modified","Action"],entries.map(item=>[
+   entries.length?table(["Name","Size","Modified","Actions"],entries.map(item=>[
     node("span",{class:"file-name",text:(item.directory?"📁 ":"📄 ")+item.name}),
     node("span",{text:item.directory?"Folder":formatBytes(item.size)}),
     node("span",{text:item.modified?new Date(item.modified).toLocaleString():"—"}),
-    item.directory?button("Open",()=>openFileLocation(d.id,location.share,item.relative_path),"btn btn-quiet"):
-     button("Download",()=>downloadNASFile(d,item),"btn btn-quiet")
+    node("div",{class:"actions"},
+     item.symlink?node("span",{class:"hint",text:"Link · use NAS console"}):
+      item.directory?button("Open",()=>openFileLocation(d.id,location.share,item.relative_path),"btn btn-quiet"):
+       button("Download",()=>downloadNASFile(d,item),"btn btn-quiet"),
+     button("Rename",()=>renameNASItem(d,item),"btn btn-quiet",S.busy||!data.writable),
+     button("Recycle",()=>recycleNASItem(d,item),"btn btn-danger",S.busy||!data.writable)
+    )
    ])):empty("▣","This folder is empty","No files or directories were returned.")));
   if(location.rel)root.append(button("Back to parent",()=>openFileLocation(d.id,location.share,data.parent_relative_path||""),"btn btn-quiet"));
  }
- root.append(node("p",{class:"hint",text:"The desktop only displays share-rooted folders approved by Zero1Local. Upload, rename, move, trash and advanced file operations open in the full NAS console until their native operations are validated."}),
+ root.append(node("p",{class:"hint",text:"Only NAS-approved share folders are displayed. Upload, create folder, rename, recycle and downloads are authorized by your NAS session. Bulk copy/move, previews, sharing links and permanent deletion remain in the full NAS console."}),
   button("Open NAS file manager",()=>openDevice(d.id),"btn btn-quiet"));
  return root;
 }
@@ -568,6 +577,66 @@ function formatBytes(size){
  while(n>=1024&&index<units.length-1){n/=1024;index++}
  return n.toFixed(n>=10?0:1)+" "+units[index];
 }
+
+async function performFileAction(d,action,path,name=""){
+ const result=await request("/api/nas/file-action",{id:d.id,action,path,name});
+ if(result?.ok===false)throw new Error(result.error||"The NAS rejected this operation");
+ const key=liveKey(d,"files");
+ delete S.live[key];
+ await refreshLive(true);
+ return result;
+}
+function newFolderDialog(d,parentPath){
+ const content=node("div",{},field("Folder name","new-folder-name","New folder"));
+ dialog("Create a folder",content,async()=>{
+  const name=content.querySelector("#new-folder-name").value.trim();
+  if(!name)throw new Error("Enter a folder name");
+  await performFileAction(d,"mkdir",parentPath,name);
+  flash("Folder created: "+name);
+ },"Create folder");
+}
+function renameNASItem(d,item){
+ const content=node("div",{},field("New name","rename-item",item.name,item.name));
+ dialog("Rename "+item.name,content,async()=>{
+  const name=content.querySelector("#rename-item").value.trim();
+  if(!name||name===item.name)throw new Error("Enter a different name");
+  await performFileAction(d,"rename",item.path,name);
+  flash("Renamed to "+name);
+ },"Rename");
+}
+function recycleNASItem(d,item){
+ const content=node("div",{},
+  node("p",{text:"Move “"+item.name+"” to the Zero1Local Recycle Bin?"}),
+  node("p",{class:"hint",text:"This changes files on the NAS and may affect anyone using this shared folder. It does not permanently delete the item."})
+ );
+ dialog("Move to Recycle Bin",content,async()=>{
+  await performFileAction(d,"trash",item.path);
+  flash("Moved to NAS Recycle Bin: "+item.name);
+ },"Move to Recycle Bin");
+}
+function chooseUpload(d,path){
+ const picker=node("input",{type:"file",multiple:"multiple","aria-label":"Select files to upload"});
+ picker.addEventListener("change",async()=>{
+  const files=[...picker.files||[]];
+  if(!files.length)return;
+  if(files.some(f=>f.size>256*1024*1024))return flash("Each upload must be smaller than 256 MiB.");
+  await task(async()=>{
+   for(const file of files){
+    const form=new FormData();form.append("file",file,file.name);
+    const res=await fetch("/api/nas/upload?id="+encodeURIComponent(d.id)+"&path="+encodeURIComponent(path),
+     {method:"POST",headers:{"X-Z1L-Token":csrf},body:form});
+    let body;
+    try{body=await res.json()}catch{throw new Error("NAS upload response was invalid")}
+    if(!res.ok)throw new Error(body.error||"Upload rejected by the NAS");
+   }
+   delete S.live[liveKey(d,"files")];
+   await refreshLive(true);
+   flash("Uploaded "+files.length+" file"+(files.length===1?"":"s")+" to the NAS");
+  });
+ });
+ picker.click();
+}
+
 function openFileLocation(id,share,rel){
  S.fileLocation={id,share,rel};S.view="files";render();refreshLive(false);
 }
