@@ -147,7 +147,7 @@ function homePage(){
  );
  root.append(overview);
  root.append(node("div",{class:"workspace-stats"},
-  ...[[String(S.settings.devices.length),"Appliances"],[String(dMaps.length),"Mapped drives"],
+  ...[["v"+(d.version||"—"),"NAS software"],[String(dMaps.length),"This NAS: mapped drives"],
     [session?"Connected":"Sign-in needed","Administrator session"]].map(([value,label])=>
     node("div",{class:"workspace-stat"},node("strong",{text:value}),node("span",{text:label}))
   )
@@ -210,13 +210,15 @@ function devicesPage(){
        node("small",{text:"Zero1Local "+(d.version||"version unknown")}))
      ),
      node("div",{class:"appliance-directory-status"},
-      node("strong",{class:session?"online":"offline",text:session?"Signed in":"Authentication required"}),
+      node("strong",{class:session?"online":"offline",text:session?"Signed in":S.sessionRecovery?.[d.id]?"Restoring sign-in":"Sign-in required"}),
       node("small",{text:session?session.username+" · "+(session.role||"administrator"):
-       "Your saved device remains on this computer."})
+       S.sessionRecovery?.[d.id]|| (d.rememberSignIn?"Saved sign-in enabled":"Sign in when you open this device")}),
+      node("small",{text:d.rememberSignIn?"Keeps me signed in on this computer":"Session-only sign-in"})
      ),
      node("div",{class:"appliance-directory-actions"},
       button("Open workspace",()=>choose(d.id),"btn btn-primary"),
-      session?button("Sign out",()=>disconnectDevice(d.id)):button("Sign in",()=>credentialDialog(d.id)),
+      session?button(d.rememberSignIn?"Sign out & forget":"Sign out",()=>disconnectDevice(d.id)):button("Sign in",()=>credentialDialog(d.id)),
+      session?d.rememberSignIn?button("Stop remembering",()=>forgetSavedNAS(d.id)):button("Keep signed in",()=>credentialDialog(d.id)):null,
       button("NAS console",()=>openDevice(d.id)),
       button("Forget",()=>forget(d),"btn btn-danger")
      )
@@ -253,7 +255,11 @@ function sharesPage(){
    field(targetLabel,"target",S.platform==="windows"?"Z:":"Managed by the operating system",
     S.platform==="windows"?"Z:":"")
   ),
-  node("div",{class:"warning",text:"Drive mapping uses your operating system’s SMB/NFS credentials, separate from the Zero1Local administrator login. Your NAS password is never saved by the desktop app."}),
+  S.platform==="windows"?node("label",{class:"share-reconnect-option"},
+   node("input",{id:"share-reconnect",type:"checkbox"}),
+   node("span",{},node("strong",{text:"Reconnect this SMB drive when I sign in to Windows"}),
+    node("small",{text:"Windows manages this persistent mapping and any share credentials in Windows Credential Manager. It does not use the NAS administrator password."}))
+  ):node("p",{class:"hint",text:"On this operating system, share authentication and reconnect behavior are managed by your file manager. The companion will not silently store SMB or NFS passwords."}),
   node("div",{class:"form-actions"},button("Connect share",connectShare,"btn btn-primary"))
  );
  const p=form.querySelector("#protocol"),t=form.querySelector("#target");
@@ -323,16 +329,23 @@ function selectNASShare(protocol,remote){
  flash("Selected "+protocol.toUpperCase()+" share: "+remote);
 }
 function mountsPage(){
- const root=node("div",{},heading("Mapped drives","Recorded mount requests from this desktop companion."));
- if(!S.settings.mappings.length)root.append(empty("⌘","Nothing mounted yet","Use Shares & access to map a NAS share.",button("Connect a share",()=>{S.view="shares";render()},"btn btn-primary")));
- else root.append(section("Saved mappings",table(["Drive or folder","Remote share","Appliance","Action"],
-  S.settings.mappings.map(m=>[
+ const d=selected();
+ if(!d)return node("div",{},heading("Mapped drives","Choose a NAS first."),
+  button("All NAS devices",()=>switchView("devices"),"btn btn-primary"));
+ const mappings=S.settings.mappings.filter(m=>m.deviceId===d.id);
+ const root=node("div",{class:"device-mappings"},heading(d.name+" · Mapped drives",
+  "Drive mappings associated only with this NAS. Your operating system handles share authentication."));
+ if(!mappings.length)root.append(empty("⌘","No drives mapped from "+d.name,
+  "Open Shared folders to connect an SMB or NFS export from this NAS.",
+  button("Connect a share",()=>switchView("shares"),"btn btn-primary")));
+ else root.append(section("Saved mappings from "+d.name,table(["Drive or folder","Share","Reconnect","Action"],
+  mappings.map(m=>[
    primary(m.target||"Desktop volume",m.protocol.toUpperCase()),
    node("span",{class:"path",text:m.server+"/"+m.remote}),
-   node("span",{text:getDevice(m.deviceId)?.name||"Unknown"}),
+   node("span",{text:m.reconnect?"Reconnect at Windows sign-in":"This session only"}),
    button("Disconnect",()=>confirmUnmount(m),"btn btn-danger")
   ]))));
- root.append(node("p",{class:"hint",text:"Saved mappings describe OS requests. An entry does not prove that a volume is currently mounted. Use Finder, File Explorer, or your Linux file manager to verify."}));
+ root.append(node("p",{class:"hint",text:"Mapping records do not prove a drive is currently available. Use File Explorer, Finder or your Linux file manager to confirm the connection. Share credentials are separate from NAS administrator sign-in."}));
  return root;
 }
 function settingsPage(){
@@ -402,24 +415,33 @@ function credentialDialog(id="",address=""){
    node("input",{type:"checkbox",id:"allow-http",value:"yes"}),
    node("span",{text:"I understand that connecting over HTTP sends my administrator password without encryption on the network. I want to proceed anyway."})
   ),
-  node("p",{class:"hint",text:"HTTPS certificates are checked. Credentials are used once to obtain a NAS session; passwords are never saved to disk. You will sign in again after restarting the desktop app."}),
+  node("label",{class:"remember-consent"},
+   node("input",{type:"checkbox",id:"remember-nas",disabled:!S.credentialVaultAvailable}),
+   node("span",{},node("strong",{text:"Keep me signed in to this NAS"}),
+    node("small",{text:S.credentialVaultAvailable?
+     "Save this NAS username and password in your computer’s secure credential vault for automatic sign-in and session renewal. Two-factor verification may still be required.":
+     "Secure credential storage isn't available in this runtime. Sign-in will last for this app session only."}))
+  ),
+  node("p",{class:"hint",text:"Each NAS has its own sign-in. NAS passwords are never written to Zero1Local Desktop settings. Windows SMB share credentials are managed separately by Windows."}),
   node("p",{class:"signin-error",id:"signin-error","aria-live":"assertive"})
  );
  const username=content.querySelector("#admin-username"),password=content.querySelector("#admin-password");
+ content.querySelector("#remember-nas").checked=!!d?.rememberSignIn;
  username.autocomplete="username";password.autocomplete="current-password";password.required=true;
  dialog(d?"Sign in to "+d.name:"Add Zero1Local appliance",content,async()=>{
   const url=d?d.url:content.querySelector("#add-url").value.trim();
   if(!url)throw new Error("Enter the NAS management address.");
   const payload={username:username.value.trim(),password:password.value,
    totp:content.querySelector("#admin-totp").value.trim(),
-   allowHTTP:content.querySelector("#allow-http").checked};
+   allowHTTP:content.querySelector("#allow-http").checked,
+   remember:content.querySelector("#remember-nas").checked};
   if(!payload.username||!payload.password)throw new Error("Enter both administrator username and password.");
   if(d)payload.id=d.id;else payload.url=url;
   try{
    const result=await request(d?"/api/nas/login":"/api/add",payload);
    password.value="";content.querySelector("#admin-totp").value="";
    await reload();
-   S.selected=result.id;S.view="home";render();
+   S.selected=result.id;S.inventory=null;S.fileLocation={id:result.id,share:"",rel:""};S.view="home";render();
    flash("Connected to "+(d?d.name:result.name)+" as "+result.username);
   }finally{password.value="";}
  },d?"Sign in":"Verify & add NAS");
@@ -483,7 +505,8 @@ async function connectShare(){
  const d=selected();if(!d)return;
  const req={deviceId:d.id,protocol:document.querySelector("#protocol").value,
   server:document.querySelector("#server").value,remote:document.querySelector("#remote").value,
-  target:document.querySelector("#target").value};
+  target:document.querySelector("#target").value,
+  reconnect:!!document.querySelector("#share-reconnect")?.checked};
  await task(async()=>{const v=await request("/api/mount",req);await reload();S.view="mounts";flash(v.message)});
 }
 async function loadInventory(){
@@ -523,7 +546,7 @@ function switchView(view){
 }
 function sessionState(d){
  const session=sessionFor(d);
- if(!session)return "Sign in required";
+ if(!session)return S.sessionRecovery?.[d.id]||"Sign in required";
  return "Signed in as "+session.username+" · "+(session.role||"administrator");
 }
 function connectionBanner(d){
@@ -531,16 +554,21 @@ function connectionBanner(d){
  return node("div",{class:"connection-banner"},
   node("span",{class:"connection-dot "+(session?"connected":"disconnected"),"aria-hidden":"true"}),
   node("div",{class:"connection-description"},
-   node("strong",{text:session?"Connected to "+d.name:"Administrator sign-in needed"}),
-   node("span",{text:session?sessionState(d):"Sign in to access files, storage, tasks and user management on this appliance."})
+   node("strong",{text:session?"Connected to "+d.name:S.sessionRecovery?.[d.id]||"Administrator sign-in needed"}),
+   node("span",{text:session?sessionState(d):d.rememberSignIn?"Saved sign-in enabled for this NAS. Reconnect if verification is required.":"Sign in to access files, storage, tasks and user management on this appliance."})
   ),
-  session?button("Sign out",()=>disconnectDevice(d.id),"btn btn-quiet",S.busy):
+  session?button(d.rememberSignIn?"Sign out & forget":"Sign out",()=>disconnectDevice(d.id),"btn btn-quiet",S.busy):
    button("Sign in",()=>credentialDialog(d.id),"btn btn-primary",S.busy),
+  session?d.rememberSignIn?button("Stop remembering",()=>forgetSavedNAS(d.id),"btn btn-quiet"):
+   button("Keep me signed in",()=>credentialDialog(d.id),"btn btn-quiet"):null,
   button("NAS console",()=>openDevice(d.id),"btn btn-quiet",S.busy)
  );
 }
 async function disconnectDevice(id){
- await task(async()=>{await request("/api/nas/logout",{id});await reload();flash("Disconnected the NAS administrator session")});
+ await task(async()=>{await request("/api/nas/logout",{id});await reload();flash("Signed out of the NAS. Saved sign-in was also cleared.")});
+}
+async function forgetSavedNAS(id){
+ await task(async()=>{await request("/api/nas/forget-credential",{id});await reload();flash("Saved NAS sign-in disabled. Your active session stays connected.")});
 }
 function liveKey(d,resource){return d.id+":"+resource+(resource==="files"?":"+S.fileLocation.share+":"+S.fileLocation.rel:"")}
 async function refreshLive(force=true){
