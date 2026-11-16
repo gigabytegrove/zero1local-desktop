@@ -1,6 +1,6 @@
 module github.com/gigabytegrove/zero1local-desktop/desktop
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/gigabytegrove/zero1local-desktop v0.0.0
